@@ -16,7 +16,9 @@ async def process_envelope(topic, env):
 
     async with database.async_session() as session:
         result = await session.execute(select(Packet).where(Packet.id == env.packet.id))
-        if not result.scalar_one_or_none():
+        new_packet = False
+        packet = result.scalar_one_or_none()
+        if not packet:
             new_packet = True
             packet = Packet(
                 id=env.packet.id,
@@ -27,8 +29,7 @@ async def process_envelope(topic, env):
                 import_time=datetime.datetime.utcnow(),
             )
             session.add(packet)
-        else:
-            packet = None
+
         result = await session.execute(
             select(PacketSeen).where(
                 PacketSeen.packet_id == env.packet.id,
@@ -87,7 +88,7 @@ async def process_envelope(topic, env):
                 session.add(node)
 
         await session.commit()
-        if packet:
+        if new_packet:
             await packet.awaitable_attrs.to_node
             await packet.awaitable_attrs.from_node
             notify.notify_packet(packet.to_node_id, packet)
