@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block css %}
+.timestamp {
+    min-width:10em;
+}
+.chat-packet:nth-of-type(odd){
+    background-color:#CCC;
+}
+.chat-packet:nth-of-type(even){
+    background-color:#EEE;
+}
+{% endblock %}
+
+
+{% block body %}
+    <div class="container" hx-ext="sse" sse-connect="/chat_events" sse-swap="chat_packet" hx-swap="afterbegin">
+        {% for packet in packets %}
+        {% include 'chat_packet.html' %}
+        {% else %}
+        No packets found.
+        {% endfor %}
+    </div>
+{% endblock %}

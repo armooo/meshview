@@ -1,0 +1,50 @@
+<div class="card mt-1">
+    <div class="card-header">
+        {% set from_me = packet.from_node_id == node_id %}
+        {% set to_me = packet.to_node_id == node_id %}
+        <span {% if from_me %} class="fw-bold" {% endif %}>
+            {{packet.from_node.long_name}}(
+            {%- if not from_me -%}
+            <a hx-target="#node" href="/node_search?q={{packet.from_node_id|node_id_to_hex}}">
+            {%- endif -%}
+            {{packet.from_node_id|node_id_to_hex}}
+            {%- if not from_me -%}
+            </a>
+            {%- endif -%}
+            )
+        </span>
+        -&gt;
+        <span {% if to_me %} class="fw-bold" {% endif %}>
+            {{packet.to_node.long_name}}(
+            {%- if not to_me -%}
+            <a hx-target="#node" href="/node_search?q={{packet.to_node_id|node_id_to_hex}}">
+            {%- endif -%}
+            {{packet.to_node_id|node_id_to_hex}}
+            {%- if not to_me -%}
+            </a>
+            {%- endif -%}
+            )
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="card-title">
+            <a hx-boost="false" href="#" hx-target="#packet_details" hx-get="/packet_details/{{packet.id}}" hx-swap="innerHTML scroll:top">{{packet.id}}</a>
+        </div>
+        <div class="card-text text-start">
+            <dl>
+                <dt>import_time</dt>
+                <dd>{{packet.import_time | format_timestamp}}</dd>
+                <dt>packet</dt>
+                <dd><pre>{{packet.data}}</pre></dd>
+                <dt>payload</dt>
+                <dd>
+                    {% if packet.pretty_payload %}
+                    <div>{{packet.pretty_payload}}<div>
+                    {% endif %}
+                    <pre>{{packet.payload}}</pre>
+                </dd>
+            </dl>
+            </p>
+        </div>
+    </div>
+</div>

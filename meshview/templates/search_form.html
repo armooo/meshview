@@ -1,0 +1,23 @@
+<form
+    class="container-fluid p-2 sticky-top mx-auto"
+    id="search_form"
+    style="width: 80%;"
+    action="/node_search"
+>
+    <input
+        id="q"
+        type="text"
+        name="q"
+        placeholder="Node id"
+        autocomplete="off"
+        size="100"
+        list="node_options"
+        value="{{raw_node_id}}"
+        hx-trigger="keyup delay:100ms"
+        hx-get="/node_match"
+        hx-target="#node_options"
+    />
+    {% include "datalist.html" %}
+    <input type="submit"/>
+    <input type="reset"/>
+</form>

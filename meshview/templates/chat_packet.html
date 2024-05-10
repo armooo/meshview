@@ -1,0 +1,5 @@
+<div class="row chat-packet">
+    <span class="col-2 timestamp">{{packet.import_time | format_timestamp}}</span>
+    <span class="col-3 username">{{packet.from_node.long_name or (packet.from_node_id | node_id_to_hex) }}</span>
+    <span class="col message">{{packet.payload}}</span>
+</div>

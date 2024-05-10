@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block body %}
+{% include "search_form.html" %}
+<div id="node" class="container text-center">
+    <div class="container"
+         {% if node %}
+         hx-ext="sse"
+         sse-connect="/events?node_id={{node_id}}{% if portnum %}&portnum={{portnum}}{% endif %}">
+        {% endif %}
+        <div class="row">
+            <div class="col">
+                <div class="card text-white bg-primary mb-3" id="node_info">
+                    {% if node %}
+                    <div class="card-header">
+                        {{node.long_name}} ({{node.node_id|node_id_to_hex}})
+                    </div>
+                    <div class="card-body">
+                        <dl class="card-body">
+                            <dt>short name</dt>
+                            <dd>{{node.short_name}}</dd>
+                            <dt>hw model</dt>
+                            <dd>{{node.hw_model}}</dd>
+                        </dl>
+                    </div>
+                    {% else %}
+                    <div class="card-body">
+                    A NodeInfo has not been seen.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        <div class="row">
+            <div class="col">
+            {% include "buttons.html" %}
+            </div>
+        </div>
+
+        <div class="row">
+            {% include 'packet_list.html' %}
+            <div class="col-6 sticky-top" id="packet_details" style="height: 95vh; overflow: scroll">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

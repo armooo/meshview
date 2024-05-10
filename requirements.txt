@@ -1,0 +1,10 @@
+protobuf
+aiomqtt
+sqlalchemy[asyncio]
+cryptography
+aiosqlite
+aiohttp
+aiodns
+Jinja2
+aiohttp-sse
+asyncpg

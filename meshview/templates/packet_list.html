@@ -1,0 +1,7 @@
+<div class="col-6" id="packet_list" sse-swap="{{packet_event | default('packet')}}" hx-swap="afterbegin">
+    {% for packet in packets %}
+    {% include 'packet.html' %}
+    {% else %}
+    No packets found.
+    {% endfor %}
+</div>

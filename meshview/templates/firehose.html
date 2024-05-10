@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block body %}
+    <div class="container" hx-ext="sse" sse-connect="/events">
+        <div class="row">
+            <div class="col-6" id="packet_list" sse-swap="packet" hx-swap="afterbegin">
+                {% for packet in packets %}
+                {% include 'packet.html' %}
+                {% else %}
+                No packets found.
+                {% endfor %}
+            </div>
+            <div class="col-6 sticky-top" id="packet_details" style="height: 95vh; overflow: scroll">
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% for seen in packets_seen %}
+<div class="card mt-2">
+    <div class="card-header">
+        {{seen.node.long_name}}(
+        <a hx-target="#node" href="/node_search?q={{seen.node_id|node_id_to_hex}}">
+        {{seen.node_id|node_id_to_hex}}
+        </a>
+        )
+    </div>
+    <div class="card-body">
+        <div class="card-text text-start">
+            <dl>
+                <dt>import_time</dt>
+                <dd>{{seen.import_time|format_timestamp}}</dd>
+                <dt>rx_time</dt>
+                <dd>{{seen.rx_time|format_timestamp}}</dd>
+                <dt>hop_limit</dt>
+                <dd>{{seen.hop_limit}}</dd>
+                <dt>channel</dt>
+                <dd>{{seen.channel}}</dd>
+                <dt>rx_snr</dt>
+                <dd>{{seen.rx_snr}}</dd>
+                <dt>rx_rssi</dt>
+                <dd>{{seen.rx_rssi}}</dd>
+                <dt>topic</dt>
+                <dd>{{seen.topic}}</dd>
+            </dl>
+        </div>
+    </div>
+</div>
+{% endfor %}
