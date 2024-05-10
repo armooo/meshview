@@ -170,6 +170,7 @@ async def node_search(request):
             packets=packets,
             packet_event="packet",
             node_options=options,
+            portnum=portnum,
         ),
         content_type="text/html",
     )
