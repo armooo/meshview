@@ -331,11 +331,15 @@ async def packet_details(request):
 
 @routes.get("/firehose")
 async def packet_details(request):
-    packets = await store.get_packets()
+    portnum = request.query.get("portnum")
+    if portnum:
+        portnum = int(portnum)
+    packets = await store.get_packets(portnum=portnum)
     template = env.get_template("firehose.html")
     return web.Response(
         text=template.render(
             packets=(Packet.from_model(p) for p in packets),
+            portnum=portnum,
         ),
         content_type="text/html",
     )

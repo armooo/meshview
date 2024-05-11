@@ -1,16 +1,39 @@
 {% extends "base.html" %}
 
 {% block body %}
-    <div class="container" hx-ext="sse" sse-connect="/events">
-        <div class="row">
-            <div class="col-6" id="packet_list" sse-swap="packet" hx-swap="afterbegin">
-                {% for packet in packets %}
-                {% include 'packet.html' %}
-                {% else %}
-                No packets found.
-                {% endfor %}
-            </div>
-            <div class="col-6 sticky-top" id="packet_details" style="height: 95vh; overflow: scroll">
+<div class="container" hx-ext="sse" sse-connect="/events{% if portnum %}?portnum={{portnum}}{% endif%}">
+    <form class="row">
+        {% set options = {
+                1: "Text Message",
+                3: "Position",
+                4: "Node Info",
+                67: "Telemetry",
+                71: "Neighbor Info",
+            }
+        %}
+        <select name="portnum" class="col-2 m-2">
+            <option
+                value = ""
+                {% if portnum not in options %}selected{% endif %}
+            >All</option>
+            {% for value, name in options.items() %}
+            <option
+                value="{{value}}"
+                {% if value == portnum %}selected{% endif %}
+            >{{ name }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" class="col-2 m-2"/>
+    </form>
+    <div class="row">
+        <div class="col-6" id="packet_list" sse-swap="packet" hx-swap="afterbegin">
+            {% for packet in packets %}
+            {% include 'packet.html' %}
+            {% else %}
+            No packets found.
+            {% endfor %}
         </div>
+        <div class="col-6 sticky-top" id="packet_details" style="height: 95vh; overflow: scroll">
     </div>
+</div>
 {% endblock %}
