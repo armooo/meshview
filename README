@@ -4,6 +4,11 @@ Meshview
 This project watches a MQTT topic for meshtastic messages, imports them to a
 database and has a web UI to view them.
 
+Example
+-------
+An example instance, https://meshview.armooo.net, is running with with data
+from the MQTT topic msh/US/bayarea/#.
+
 
 Running
 -------
