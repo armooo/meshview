@@ -129,18 +129,25 @@ async def get_packets(node_id=None, portnum=None):
         return result.scalars()
 
 
+async def get_packets_from(node_id=None, portnum=None):
+    async with database.async_session() as session:
+        q = select(Packet)
+
+        if node_id:
+            q = q.where(
+                Packet.from_node_id == node_id
+            )
+        if portnum:
+            q = q.where(Packet.portnum == portnum)
+        result = await session.execute(q.limit(500).order_by(Packet.import_time.desc()))
+        return result.scalars()
+
+
 async def get_packet(packet_id):
     async with database.async_session() as session:
         q = select(Packet).where(Packet.id == packet_id)
         result = await session.execute(q)
         return result.scalar_one_or_none()
-
-
-async def get_position(node_id):
-    async with database.async_session() as session:
-        q = select(Packet).where((Packet.from_node_id == node_id) & (Packet.portnum == PortNum.POSITION_APP)).order_by(Packet.import_time.desc())
-        result = await session.execute(q)
-        return result.scalar()
 
 
 async def get_uplinked_packets(node_id):

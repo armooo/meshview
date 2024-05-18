@@ -7,7 +7,7 @@
 
 {% block css %}
     #map{
-        height:90%;
+        height:100%;
     }
     #packet_details{
         height: 95vh;
@@ -26,8 +26,8 @@
          sse-connect="/events?node_id={{node_id}}{% if portnum %}&portnum={{portnum}}{% endif %}">
         {% endif %}
         <div class="row">
-            <div class="col">
-                <div class="card text-white bg-primary mb-3" id="node_info">
+            <div class="col mb-3">
+                <div class="card text-white bg-primary" id="node_info">
                     {% if node %}
                     <div class="card-header">
                         {{node.long_name}} ({{node.node_id|node_id_to_hex}})
@@ -47,7 +47,7 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="col">
+            <div class="col mb-3">
                 <div id="map"/>
             </div>
 
@@ -67,17 +67,16 @@
     </div>
 </div>
 
-{% if position and position.raw_payload.latitude_i %}
+{% if trace %}
 <script>
-    var pos = [{{position.raw_payload.latitude_i * 1e-7}}, {{position.raw_payload.longitude_i * 1e-7}}];
     var trace = {{trace | tojson}};
-    var map = L.map('map').setView(pos, 13);
+    var map = L.map('map').setView(trace[0], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
     L.polyline(trace).addTo(map);
-    var marker = L.marker(pos).addTo(map);
+    L.marker(trace[0]).addTo(map);
 </script>
 {% endif %}
 
