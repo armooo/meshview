@@ -150,6 +150,11 @@ async def node_search(request):
         except ValueError:
             pass
 
+    if node_id is None:
+        fuzzy_nodes = list(await store.get_fuzzy_nodes(raw_node_id))
+        if len(fuzzy_nodes) == 1:
+            node_id = fuzzy_nodes[0].node_id
+
     async with asyncio.TaskGroup() as tg:
         if node_id:
             node_task = tg.create_task(store.get_node(node_id))
