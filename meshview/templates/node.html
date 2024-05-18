@@ -70,11 +70,13 @@
 {% if position and position.raw_payload.latitude_i %}
 <script>
     var pos = [{{position.raw_payload.latitude_i * 1e-7}}, {{position.raw_payload.longitude_i * 1e-7}}];
+    var trace = {{trace | tojson}};
     var map = L.map('map').setView(pos, 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
+    L.polyline(trace).addTo(map);
     var marker = L.marker(pos).addTo(map);
 </script>
 {% endif %}

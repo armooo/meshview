@@ -21,6 +21,18 @@ from meshview import notify
 env = Environment(loader=PackageLoader("meshview"), autoescape=select_autoescape())
 
 
+async def build_trace(node_id):
+    trace = []
+    for raw_p in await store.get_packets(node_id, PortNum.POSITION_APP):
+        p = Packet.from_model(raw_p)
+        if p.from_node_id != node_id:
+            continue
+        if not p.raw_payload.latitude_i or not p.raw_payload.longitude_i:
+            continue
+        trace.append((p.raw_payload.latitude_i * 1e-7, p.raw_payload.longitude_i * 1e-7))
+    return trace
+
+
 def node_id_to_hex(node_id):
     if node_id == 4294967295:
         return "^all"
@@ -57,6 +69,7 @@ class Packet:
     from_node: models.Node
     to_node_id: int
     to_node: models.Node
+    portnum: int
     data: str
     raw_payload: object
     payload: str
@@ -103,6 +116,7 @@ class Packet:
             from_node_id=packet.from_node_id,
             to_node=packet.to_node,
             to_node_id=packet.to_node_id,
+            portnum=packet.portnum,
             data=text_mesh_packet,
             payload=text_payload,
             pretty_payload=pretty_payload,
@@ -171,7 +185,7 @@ async def node_search(request):
 
         node_options_task = tg.create_task(store.get_fuzzy_nodes(raw_node_id))
 
-    packets = (Packet.from_model(p) for p in packets_task.result())
+    packets = [Packet.from_model(p) for p in packets_task.result()]
     template = env.get_template("node.html")
     options = list(node_options_task.result())
     position = Packet.from_model(position_task.result()) if position_task.result() else None
@@ -186,6 +200,7 @@ async def node_search(request):
             node_options=options,
             portnum=portnum,
             position=position,
+            trace=await build_trace(node_id),
         ),
         content_type="text/html",
     )
@@ -224,6 +239,7 @@ async def packet_list(request):
             packets=packets,
             packet_event="packet",
             position=Packet.from_model(position) if position else None,
+            trace=await build_trace(node_id),
         ),
         content_type="text/html",
     )
@@ -247,6 +263,7 @@ async def uplinked_list(request):
             packets=packets,
             packet_event="uplinked",
             position=Packet.from_model(position) if position else None,
+            trace=await build_trace(node_id),
         ),
         content_type="text/html",
     )
