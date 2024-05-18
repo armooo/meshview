@@ -18,7 +18,8 @@ async def main(args):
 
     await database.create_tables()
     async with asyncio.TaskGroup() as tg:
-        tg.create_task(load_database_from_mqtt(args.topic))
+        for topic in args.topic:
+            tg.create_task(load_database_from_mqtt(topic))
         tg.create_task(web.run_server(args.bind, args.port, args.tls_cert))
         if args.acme_challenge:
             tg.create_task(http.run_server(args.bind, args.acme_challenge))
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', default=8080, type=int)
     parser.add_argument('--tls-cert')
 
-    parser.add_argument('--topic', default='msh/US/bayarea/#')
+    parser.add_argument('--topic', nargs='*', default='msh/US/bayarea/#')
 
     parser.add_argument('--database', default='sqlite+aiosqlite:///packets.db')
 
