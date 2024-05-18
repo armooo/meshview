@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
+{% block head %}
+     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% endblock %}
+
+{% block css %}
+    #map{
+        height:90%;
+    }
+{% endblock %}
+
 {% block body %}
+
 {% include "search_form.html" %}
 <div id="node" class="container text-center">
     <div class="container"
@@ -30,6 +42,11 @@
                     {% endif %}
                 </div>
             </div>
+            <div class="col">
+                <div id="map"/>
+            </div>
+
+        </div>
 
         <div class="row">
             <div class="col">
@@ -44,4 +61,17 @@
         </div>
     </div>
 </div>
+
+{% if position and position.raw_payload.latitude_i %}
+<script>
+    var pos = [{{position.raw_payload.latitude_i * 1e-7}}, {{position.raw_payload.longitude_i * 1e-7}}];
+    var map = L.map('map').setView(pos, 13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    var marker = L.marker(pos).addTo(map);
+</script>
+{% endif %}
+
 {% endblock %}

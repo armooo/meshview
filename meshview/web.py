@@ -57,6 +57,7 @@ class Packet:
     to_node_id: int
     to_node: models.Node
     data: str
+    raw_payload: object
     payload: str
     pretty_payload: Markup
     import_time: datetime.datetime
@@ -105,6 +106,7 @@ class Packet:
             payload=text_payload,
             pretty_payload=pretty_payload,
             import_time=packet.import_time,
+            raw_payload=payload,
         )
 
 
@@ -151,17 +153,22 @@ async def node_search(request):
         if node_id:
             node_task = tg.create_task(store.get_node(node_id))
             packets_task = tg.create_task(store.get_packets(node_id, portnum=portnum))
+            position_task = tg.create_task(store.get_position(node_id))
         else:
             loop = asyncio.get_running_loop()
             node_task = loop.create_future()
             node_task.set_result(None)
             packets_task = loop.create_future()
             packets_task.set_result(())
+            position_task = loop.create_future()
+            position_task.set_result(None)
+
         node_options_task = tg.create_task(store.get_fuzzy_nodes(raw_node_id))
 
     packets = (Packet.from_model(p) for p in packets_task.result())
     template = env.get_template("node.html")
     options = list(node_options_task.result())
+    position = Packet.from_model(position_task.result()) if position_task.result() else None
 
     return web.Response(
         text=template.render(
@@ -172,6 +179,7 @@ async def node_search(request):
             packet_event="packet",
             node_options=options,
             portnum=portnum,
+            position=position,
         ),
         content_type="text/html",
     )
@@ -197,6 +205,7 @@ async def node_match(request):
 async def packet_list(request):
     node_id = int(request.match_info["node_id"])
     raw_packets = await store.get_packets(node_id)
+    position = await store.get_position(node_id)
     packets = (Packet.from_model(p) for p in raw_packets)
 
     template = env.get_template("node.html")
@@ -208,6 +217,7 @@ async def packet_list(request):
             node=node,
             packets=packets,
             packet_event="packet",
+            position=Packet.from_model(position) if position else None,
         ),
         content_type="text/html",
     )
@@ -218,6 +228,7 @@ async def uplinked_list(request):
     node_id = int(request.match_info["node_id"])
     raw_packets = await store.get_uplinked_packets(node_id)
     packets = (Packet.from_model(p) for p in raw_packets)
+    position = await store.get_position(node_id)
 
     node = await store.get_node(node_id)
     template = env.get_template("node.html")
@@ -229,6 +240,7 @@ async def uplinked_list(request):
             node=node,
             packets=packets,
             packet_event="uplinked",
+            position=Packet.from_model(position) if position else None,
         ),
         content_type="text/html",
     )

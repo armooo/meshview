@@ -136,6 +136,13 @@ async def get_packet(packet_id):
         return result.scalar_one_or_none()
 
 
+async def get_position(node_id):
+    async with database.async_session() as session:
+        q = select(Packet).where((Packet.from_node_id == node_id) & (Packet.portnum == PortNum.POSITION_APP)).order_by(Packet.import_time.desc())
+        result = await session.execute(q)
+        return result.scalar()
+
+
 async def get_uplinked_packets(node_id):
     async with database.async_session() as session:
         result = await session.execute(
