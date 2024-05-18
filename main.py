@@ -27,7 +27,7 @@ async def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('meshview')
-    parser.add_argument('--bind', default='::1')
+    parser.add_argument('--bind', nargs='*', default='::1')
     parser.add_argument('--acme-challenge')
     parser.add_argument('--port', default=8080, type=int)
     parser.add_argument('--tls-cert')

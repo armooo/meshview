@@ -18,5 +18,6 @@ async def run_server(bind, path):
     )
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, bind, 80)
+    for host in bind:
+        site = web.TCPSite(runner, host, 80)
     await site.start()

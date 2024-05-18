@@ -1,4 +1,5 @@
 import asyncio
+
 from dataclasses import dataclass
 import datetime
 from aiohttp_sse import sse_response
@@ -395,8 +396,9 @@ async def run_server(bind, port, tls_cert):
         ssl_context.load_cert_chain(tls_cert)
     else:
         ssl_context = None
-    site = web.TCPSite(runner, bind, port, ssl_context=ssl_context)
-    await site.start()
+    for host in bind:
+        site = web.TCPSite(runner, host, port, ssl_context=ssl_context)
+        await site.start()
 
     while True:
         await asyncio.sleep(3600)  # sleep forever
