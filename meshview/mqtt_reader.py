@@ -1,4 +1,5 @@
 import base64
+import asyncio
 
 import aiomqtt
 from google.protobuf.message import DecodeError
@@ -26,16 +27,20 @@ def decrypt(packet):
 
 
 async def get_topic_envelopes(topic):
-    async with aiomqtt.Client(
-        "mqtt.meshtastic.org", username="meshdev", password="large4cats"
-    ) as client:
-        await client.subscribe(topic)
-        async for msg in client.messages:
-            try:
-                envelope = ServiceEnvelope.FromString(msg.payload)
-            except DecodeError:
-                continue
-            decrypt(envelope.packet)
-            if not envelope.packet.decoded:
-                continue
-            yield msg.topic.value, envelope
+    while True:
+        try:
+            async with aiomqtt.Client(
+                "mqtt.meshtastic.org", username="meshdev", password="large4cats"
+            ) as client:
+                await client.subscribe(topic)
+                async for msg in client.messages:
+                    try:
+                        envelope = ServiceEnvelope.FromString(msg.payload)
+                    except DecodeError:
+                        continue
+                    decrypt(envelope.packet)
+                    if not envelope.packet.decoded:
+                        continue
+                    yield msg.topic.value, envelope
+        except aiomqtt.MqttError as e:
+            await asyncio.sleep(1)
