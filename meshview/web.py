@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import datetime
 from aiohttp_sse import sse_response
 import ssl
+import re
 
 from aiohttp import web
 from markupsafe import Markup
@@ -254,12 +255,14 @@ async def chat_events(request):
                     event.clear()
                     try:
                         for packet in packets:
-                            await resp.send(
-                                chat_packet.render(
-                                    packet=Packet.from_model(packet),
-                                ),
-                                event="chat_packet",
-                            )
+                            ui_packet = Packet.from_model(packet)
+                            if not re.match(r"seq \d+$", ui_packet.payload):
+                                await resp.send(
+                                    chat_packet.render(
+                                        packet=ui_packet,
+                                    ),
+                                    event="chat_packet",
+                                )
                     except ConnectionResetError:
                         return
 
@@ -351,9 +354,10 @@ async def chat(request):
         node_id=0xFFFFFFFF, portnum=PortNum.TEXT_MESSAGE_APP
     )
     template = env.get_template("chat.html")
+    ui_packets = (Packet.from_model(p) for p in packets)
     return web.Response(
         text=template.render(
-            packets=(Packet.from_model(p) for p in packets),
+            packets=(p for p in ui_packets if not re.match(r"seq \d+$", p.payload)),
         ),
         content_type="text/html",
     )
@@ -362,7 +366,6 @@ async def chat(request):
 @routes.get("/packet/{packet_id}")
 async def packet(request):
     packet = await store.get_packet(int(request.match_info["packet_id"]))
-    print(packet)
     template = env.get_template("packet_index.html")
     return web.Response(
         text=template.render(packet=Packet.from_model(packet)),
