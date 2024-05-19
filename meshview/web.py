@@ -9,6 +9,7 @@ import re
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from aiohttp import web
 from markupsafe import Markup
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -412,17 +413,27 @@ async def graph_power(request):
         _, payload = decode_payload.decode(p)
         if not payload.HasField('device_metrics'):
             continue
-        date.append(datetime.datetime.fromtimestamp(payload.time))
+        timestamp = datetime.datetime.fromtimestamp(payload.time)
+        if timestamp.year < 2000:
+            continue
+        date.append(timestamp)
         battery.append(payload.device_metrics.battery_level)
         voltage.append(payload.device_metrics.voltage)
 
+    max_time = datetime.timedelta(days=4)
+    newest = date[0]
+    for i, d in enumerate(date):
+        if d < newest - max_time:
+            break
+
     fig, ax1 = plt.subplots(figsize=(10, 10))
+    fig.autofmt_xdate()
     ax1.set_xlabel('time')
     ax1.set_ylabel('battery level', color='tab:blue')
     ax2 = ax1.twinx()
     ax2.set_ylabel('voltage', color='tab:red')
-    sns.lineplot(x=date, y=battery, ax=ax1, color='tab:blue')
-    sns.lineplot(x=date, y=voltage, ax=ax2, color='tab:red')
+    sns.lineplot(x=date[:i], y=battery[:i], ax=ax1, color='tab:blue')
+    sns.lineplot(x=date[:i], y=voltage[:i], ax=ax2, color='tab:red')
 
     png = io.BytesIO()
     plt.savefig(png, dpi=100)
