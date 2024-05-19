@@ -35,6 +35,23 @@ async def build_trace(node_id):
     return trace
 
 
+async def build_neighbors(node_id):
+    packet = (await store.get_packets_from(node_id, PortNum.NEIGHBORINFO_APP, 1)).first()
+    if not packet:
+        return []
+    _, payload = decode_payload.decode(packet)
+    neighbors = []
+    async with asyncio.TaskGroup() as tg:
+        for n in payload.neighbors:
+            neighbors.append(tg.create_task(store.get_node(n.node_id)))
+
+    result = []
+    for node in [n.result() for n in neighbors]:
+        if node.last_lat and node.last_long:
+            result.append((node.last_lat * 1e-7, node.last_long * 1e-7))
+    return result
+
+
 def node_id_to_hex(node_id):
     if node_id == 4294967295:
         return "^all"
@@ -176,6 +193,7 @@ async def node_search(request):
             node_task = tg.create_task(store.get_node(node_id))
             packets_task = tg.create_task(store.get_packets(node_id, portnum=portnum))
             trace_task = tg.create_task(build_trace(node_id))
+            neighbors_task = tg.create_task(build_neighbors(node_id))
         else:
             loop = asyncio.get_running_loop()
             node_task = loop.create_future()
@@ -184,6 +202,8 @@ async def node_search(request):
             packets_task.set_result(())
             trace_task = loop.create_future()
             trace_task.set_result([])
+            neighbors_task = loop.create_future()
+            neighbors_task.set_result([])
 
         node_options_task = tg.create_task(store.get_fuzzy_nodes(raw_node_id))
 
@@ -201,6 +221,7 @@ async def node_search(request):
             node_options=options,
             portnum=portnum,
             trace=trace_task.result(),
+            neighbors=neighbors_task.result(),
         ),
         content_type="text/html",
     )

@@ -17,6 +17,8 @@ class Node(Base):
     long_name: Mapped[str]
     short_name: Mapped[str]
     hw_model: Mapped[str]
+    last_lat: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    last_long: Mapped[int] = mapped_column(BigInteger, nullable=True)
 
 
 class Packet(Base):

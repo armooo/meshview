@@ -87,6 +87,18 @@ async def process_envelope(topic, env):
                     )
                 session.add(node)
 
+        if env.packet.decoded.portnum == PortNum.POSITION_APP:
+            position = decode_payload.decode_payload(
+                PortNum.POSITION_APP, env.packet.decoded.payload
+            )
+            if position.latitude_i and position.longitude_i:
+                from_node_id = getattr(env.packet, 'from')
+                node = (await session.execute(select(Node).where(Node.node_id == from_node_id))).scalar_one_or_none()
+                if node:
+                    node.last_lat = position.latitude_i
+                    node.last_long = position.longitude_i
+                    session.add(node)
+
         await session.commit()
         if new_packet:
             await packet.awaitable_attrs.to_node
@@ -129,7 +141,7 @@ async def get_packets(node_id=None, portnum=None):
         return result.scalars()
 
 
-async def get_packets_from(node_id=None, portnum=None):
+async def get_packets_from(node_id=None, portnum=None, limit=500):
     async with database.async_session() as session:
         q = select(Packet)
 
@@ -139,7 +151,7 @@ async def get_packets_from(node_id=None, portnum=None):
             )
         if portnum:
             q = q.where(Packet.portnum == portnum)
-        result = await session.execute(q.limit(500).order_by(Packet.import_time.desc()))
+        result = await session.execute(q.limit(limit).order_by(Packet.import_time.desc()))
         return result.scalars()
 
 

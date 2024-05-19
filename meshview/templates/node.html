@@ -77,6 +77,10 @@
     }).addTo(map);
     L.polyline(trace).addTo(map);
     L.marker(trace[0]).addTo(map);
+    {% for n in neighbors %}
+    L.circleMarker({{n | tojson}}).addTo(map);
+    L.polyline([trace[0], {{n | tojson}}], {color: 'red'}).addTo(map);
+    {% endfor %}
 </script>
 {% endif %}
 
