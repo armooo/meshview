@@ -8,3 +8,4 @@ aiodns
 Jinja2
 aiohttp-sse
 asyncpg
+seaborn

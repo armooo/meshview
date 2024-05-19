@@ -1,4 +1,5 @@
 import asyncio
+import io
 
 from dataclasses import dataclass
 import datetime
@@ -6,6 +7,8 @@ from aiohttp_sse import sse_response
 import ssl
 import re
 
+import seaborn as sns
+import matplotlib.pyplot as plt
 from aiohttp import web
 from markupsafe import Markup
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -398,6 +401,37 @@ async def packet(request):
         text=template.render(packet=Packet.from_model(packet)),
         content_type="text/html",
     )
+
+
+@routes.get("/graph/power/{node_id}")
+async def graph_power(request):
+    date = []
+    battery = []
+    voltage = []
+    for p in await store.get_packets_from(int(request.match_info['node_id']), PortNum.TELEMETRY_APP):
+        _, payload = decode_payload.decode(p)
+        if not payload.HasField('device_metrics'):
+            continue
+        date.append(datetime.datetime.fromtimestamp(payload.time))
+        battery.append(payload.device_metrics.battery_level)
+        voltage.append(payload.device_metrics.voltage)
+
+    fig, ax1 = plt.subplots(figsize=(10, 10))
+    ax1.set_xlabel('time')
+    ax1.set_ylabel('battery level', color='tab:blue')
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('voltage', color='tab:red')
+    sns.lineplot(x=date, y=battery, ax=ax1, color='tab:blue')
+    sns.lineplot(x=date, y=voltage, ax=ax2, color='tab:red')
+
+    png = io.BytesIO()
+    plt.savefig(png, dpi=100)
+
+    return web.Response(
+        body=png.getvalue(),
+        content_type="image/png",
+    )
+
 
 
 async def run_server(bind, port, tls_cert):
