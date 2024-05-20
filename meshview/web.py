@@ -41,15 +41,24 @@ async def build_neighbors(node_id):
         return []
     _, payload = decode_payload.decode(packet)
     neighbors = []
+    results = {}
     async with asyncio.TaskGroup() as tg:
         for n in payload.neighbors:
+            results[n.node_id] = {
+                'node_id': n.node_id,
+                'snr': n.snr,
+            }
             neighbors.append(tg.create_task(store.get_node(n.node_id)))
 
-    result = []
+    print(results)
+
     for node in [n.result() for n in neighbors]:
         if node.last_lat and node.last_long:
-            result.append((node.last_lat * 1e-7, node.last_long * 1e-7))
-    return result
+            results[node.node_id]['location'] = (node.last_lat * 1e-7, node.last_long * 1e-7)
+        else:
+            del results[node.node_id]
+
+    return list(results.values())
 
 
 def node_id_to_hex(node_id):
