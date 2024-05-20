@@ -50,8 +50,6 @@ async def build_neighbors(node_id):
             }
             neighbors.append(tg.create_task(store.get_node(n.node_id)))
 
-    print(results)
-
     for node in [n.result() for n in neighbors]:
         if node.last_lat and node.last_long:
             results[node.node_id]['location'] = (node.last_lat * 1e-7, node.last_long * 1e-7)
@@ -255,19 +253,25 @@ async def node_match(request):
 @routes.get("/packet_list/{node_id}")
 async def packet_list(request):
     node_id = int(request.match_info["node_id"])
-    raw_packets = await store.get_packets(node_id)
-    packets = (Packet.from_model(p) for p in raw_packets)
+
+    async with asyncio.TaskGroup() as tg:
+        raw_packets = tg.create_task(store.get_packets(node_id))
+        node = tg.create_task(store.get_node(node_id))
+        trace = tg.create_task(build_trace(node_id))
+        neighbors = tg.create_task(build_neighbors(node_id))
+
+    packets = (Packet.from_model(p) for p in await raw_packets)
 
     template = env.get_template("node.html")
-    node = await store.get_node(node_id)
     return web.Response(
         text=template.render(
             raw_node_id=node_id_to_hex(node_id),
             node_id=node_id,
-            node=node,
+            node=await node,
             packets=packets,
             packet_event="packet",
-            trace=await build_trace(node_id),
+            trace=await trace,
+            neighbors=await neighbors,
         ),
         content_type="text/html",
     )
@@ -276,20 +280,25 @@ async def packet_list(request):
 @routes.get("/uplinked_list/{node_id}")
 async def uplinked_list(request):
     node_id = int(request.match_info["node_id"])
-    raw_packets = await store.get_uplinked_packets(node_id)
-    packets = (Packet.from_model(p) for p in raw_packets)
 
-    node = await store.get_node(node_id)
+    async with asyncio.TaskGroup() as tg:
+        raw_packets = tg.create_task(store.get_uplinked_packets(node_id))
+        node = tg.create_task(store.get_node(node_id))
+        trace = tg.create_task(build_trace(node_id))
+        neighbors = tg.create_task(build_neighbors(node_id))
+
+    packets = (Packet.from_model(p) for p in await raw_packets)
+
     template = env.get_template("node.html")
-    node_html = template.render()
     return web.Response(
         text=template.render(
             raw_node_id=node_id_to_hex(node_id),
             node_id=node_id,
-            node=node,
+            node=await node,
             packets=packets,
             packet_event="uplinked",
-            trace=await build_trace(node_id),
+            trace=await trace,
+            neighbors=await neighbors,
         ),
         content_type="text/html",
     )
