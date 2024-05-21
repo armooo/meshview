@@ -231,38 +231,32 @@ async def node_match(request):
 @routes.get("/packet_list/{node_id}")
 async def packet_list(request):
     node_id = int(request.match_info["node_id"])
-
-    async with asyncio.TaskGroup() as tg:
-        raw_packets = tg.create_task(store.get_packets(node_id))
-        node = tg.create_task(store.get_node(node_id))
-        trace = tg.create_task(build_trace(node_id))
-        neighbors = tg.create_task(build_neighbors(node_id))
-        has_telemetry = tg.create_task(store.has_packets(node_id, PortNum.TELEMETRY_APP))
-
-    packets = (Packet.from_model(p) for p in await raw_packets)
-
-    template = env.get_template("node.html")
-    return web.Response(
-        text=template.render(
-            raw_node_id=node_id_to_hex(node_id),
-            node_id=node_id,
-            node=await node,
-            packets=packets,
-            packet_event="packet",
-            trace=await trace,
-            neighbors=await neighbors,
-            has_telemetry=await has_telemetry,
-        ),
-        content_type="text/html",
-    )
+    if portnum := request.query.get("portnum"):
+        portnum = int(portnum)
+    else:
+        portnum = None
+    return await _packet_list(request, store.get_packets(node_id, portnum), 'packet')
 
 
 @routes.get("/uplinked_list/{node_id}")
 async def uplinked_list(request):
     node_id = int(request.match_info["node_id"])
+    if portnum := request.query.get("portnum"):
+        portnum = int(portnum)
+    else:
+        portnum = None
+    return await _packet_list(request, store.get_uplinked_packets(node_id, portnum), 'uplinked')
+
+
+async def _packet_list(request, raw_packets, packet_event):
+    node_id = int(request.match_info["node_id"])
+    if portnum := request.query.get("portnum"):
+        portnum = int(portnum)
+    else:
+        portnum = None
 
     async with asyncio.TaskGroup() as tg:
-        raw_packets = tg.create_task(store.get_uplinked_packets(node_id))
+        raw_packets = tg.create_task(raw_packets)
         node = tg.create_task(store.get_node(node_id))
         trace = tg.create_task(build_trace(node_id))
         neighbors = tg.create_task(build_neighbors(node_id))
@@ -276,11 +270,13 @@ async def uplinked_list(request):
             raw_node_id=node_id_to_hex(node_id),
             node_id=node_id,
             node=await node,
+            portnum=portnum,
             packets=packets,
-            packet_event="uplinked",
+            packet_event=packet_event,
             trace=await trace,
             neighbors=await neighbors,
             has_telemetry=await has_telemetry,
+            query_string=request.query_string,
         ),
         content_type="text/html",
     )
@@ -346,7 +342,7 @@ async def events(request):
                     uplinked = [
                         u
                         for u in event.uplinked
-                        if portnum is None or portnum == p.portnum
+                        if portnum is None or portnum == u.portnum
                     ]
                     event.clear()
                     try:

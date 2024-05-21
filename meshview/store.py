@@ -162,15 +162,12 @@ async def get_packet(packet_id):
         return result.scalar_one_or_none()
 
 
-async def get_uplinked_packets(node_id):
+async def get_uplinked_packets(node_id, portnum=None):
     async with database.async_session() as session:
-        result = await session.execute(
-            select(Packet)
-            .join(PacketSeen)
-            .where(PacketSeen.node_id == node_id)
-            .order_by(Packet.import_time.desc())
-            .limit(500)
-        )
+        q = select(Packet).join(PacketSeen).where(PacketSeen.node_id == node_id).order_by(Packet.import_time.desc()).limit(500)
+        if portnum:
+            q = q.where(Packet.portnum == portnum)
+        result = await session.execute(q)
         return result.scalars()
 
 
