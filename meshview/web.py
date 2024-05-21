@@ -196,40 +196,17 @@ async def node_search(request):
         if len(fuzzy_nodes) == 1:
             node_id = fuzzy_nodes[0].node_id
 
-    async with asyncio.TaskGroup() as tg:
-        if node_id:
-            node_task = tg.create_task(store.get_node(node_id))
-            packets_task = tg.create_task(store.get_packets(node_id, portnum=portnum))
-            trace_task = tg.create_task(build_trace(node_id))
-            neighbors_task = tg.create_task(build_neighbors(node_id))
-        else:
-            loop = asyncio.get_running_loop()
-            node_task = loop.create_future()
-            node_task.set_result(None)
-            packets_task = loop.create_future()
-            packets_task.set_result(())
-            trace_task = loop.create_future()
-            trace_task.set_result([])
-            neighbors_task = loop.create_future()
-            neighbors_task.set_result([])
+    if node_id:
+        return web.Response(
+            status=307,
+            headers={'Location': f'/packet_list/{node_id}?{request.query_string}'},
+        )
 
-        node_options_task = tg.create_task(store.get_fuzzy_nodes(raw_node_id))
-
-    packets = [Packet.from_model(p) for p in packets_task.result()]
-    template = env.get_template("node.html")
-    options = list(node_options_task.result())
-
+    template = env.get_template("search.html")
     return web.Response(
         text=template.render(
-            raw_node_id=raw_node_id,
-            node_id=node_id,
-            node=node_task.result(),
-            packets=packets,
-            packet_event="packet",
-            node_options=options,
-            portnum=portnum,
-            trace=trace_task.result(),
-            neighbors=neighbors_task.result(),
+            nodes=fuzzy_nodes,
+            query_string=request.query_string,
         ),
         content_type="text/html",
     )
