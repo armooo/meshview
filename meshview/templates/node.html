@@ -45,7 +45,9 @@
                             <dt>hw model</dt>
                             <dd>{{node.hw_model}}</dd>
                         </dl>
+                        {% if has_telemetry %}
                         <a href="/graph/power/{{node_id}}"><img src="/graph/power/{{node_id}}" height="200em" width="200em"/></a>
+                        {% endif %}
                     </div>
                     {% else %}
                     <div class="card-body">

@@ -237,6 +237,7 @@ async def packet_list(request):
         node = tg.create_task(store.get_node(node_id))
         trace = tg.create_task(build_trace(node_id))
         neighbors = tg.create_task(build_neighbors(node_id))
+        has_telemetry = tg.create_task(store.has_packets(node_id, PortNum.TELEMETRY_APP))
 
     packets = (Packet.from_model(p) for p in await raw_packets)
 
@@ -250,6 +251,7 @@ async def packet_list(request):
             packet_event="packet",
             trace=await trace,
             neighbors=await neighbors,
+            has_telemetry=await has_telemetry,
         ),
         content_type="text/html",
     )
@@ -264,6 +266,7 @@ async def uplinked_list(request):
         node = tg.create_task(store.get_node(node_id))
         trace = tg.create_task(build_trace(node_id))
         neighbors = tg.create_task(build_neighbors(node_id))
+        has_telemetry = tg.create_task(store.has_packets(node_id, PortNum.TELEMETRY_APP))
 
     packets = (Packet.from_model(p) for p in await raw_packets)
 
@@ -277,6 +280,7 @@ async def uplinked_list(request):
             packet_event="uplinked",
             trace=await trace,
             neighbors=await neighbors,
+            has_telemetry=await has_telemetry,
         ),
         content_type="text/html",
     )
@@ -436,6 +440,14 @@ async def graph_power(request):
         date.append(timestamp)
         battery.append(payload.device_metrics.battery_level)
         voltage.append(payload.device_metrics.voltage)
+
+
+    if not date:
+        return web.Response(
+            status=404,
+            content_type="image/png",
+        )
+
 
     max_time = datetime.timedelta(days=4)
     newest = date[0]

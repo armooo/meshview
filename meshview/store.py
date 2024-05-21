@@ -182,3 +182,12 @@ async def get_packets_seen(packet_id):
             .order_by(PacketSeen.import_time.desc())
         )
         return result.scalars()
+
+
+async def has_packets(node_id, portnum):
+    async with database.async_session() as session:
+        return bool(
+            (await session.execute(
+                    select(Packet.id).where(Packet.from_node_id == node_id).limit(1)
+            )).scalar()
+        )
