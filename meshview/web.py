@@ -48,14 +48,15 @@ async def build_neighbors(node_id):
                 'node_id': n.node_id,
                 'snr': n.snr,
             }
-            neighbors.append(tg.create_task(store.get_node(n.node_id)))
+            neighbors.append((n.node_id, tg.create_task(store.get_node(n.node_id))))
 
-    for node in [n.result() for n in neighbors]:
-        if node.last_lat and node.last_long:
-            results[node.node_id]['name'] = node.long_name
-            results[node.node_id]['location'] = (node.last_lat * 1e-7, node.last_long * 1e-7)
+    for node_id, node in neighbors:
+        node = await node
+        if node and node.last_lat and node.last_long:
+            results[node_id]['name'] = node.long_name
+            results[node_id]['location'] = (node.last_lat * 1e-7, node.last_long * 1e-7)
         else:
-            del results[node.node_id]
+            del results[node_id]
 
     return list(results.values())
 
