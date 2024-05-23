@@ -40,6 +40,8 @@ async def build_neighbors(node_id):
     packet = (await store.get_packets_from(node_id, PortNum.NEIGHBORINFO_APP, 1)).first()
     if not packet:
         return []
+    if packet.import_time < datetime.datetime.utcnow() - datetime.timedelta(days=1):
+        return []
     _, payload = decode_payload.decode(packet)
     neighbors = []
     results = {}
@@ -464,6 +466,7 @@ async def graph_power(request):
 
     png = io.BytesIO()
     plt.savefig(png, dpi=100)
+    plt.close()
 
     return web.Response(
         body=png.getvalue(),
@@ -510,6 +513,7 @@ async def graph_neighbors(request):
 
     png = io.BytesIO()
     plt.savefig(png, dpi=100)
+    plt.close()
 
     return web.Response(
         body=png.getvalue(),
