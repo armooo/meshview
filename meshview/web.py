@@ -7,6 +7,7 @@ from aiohttp_sse import sse_response
 import ssl
 import re
 
+from pandas import DataFrame
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -469,6 +470,51 @@ async def graph_power(request):
         content_type="image/png",
     )
 
+
+@routes.get("/graph/neighbors/{node_id}")
+async def graph_neighbors(request):
+    oldest = datetime.datetime.utcnow() - datetime.timedelta(days=4)
+
+    data = {}
+    dates =[]
+    for p in await store.get_packets_from(int(request.match_info['node_id']), PortNum.NEIGHBORINFO_APP):
+        _, payload = decode_payload.decode(p)
+        if p.import_time < oldest:
+            break
+
+        dates.append(p.import_time)
+        for v in data.values():
+            v.append(None)
+
+        for n in payload.neighbors:
+            data.setdefault(n.node_id, [None] * len(dates))[-1] = n.snr
+
+    nodes = {}
+    async with asyncio.TaskGroup() as tg:
+        for node_id in data:
+            nodes[node_id] = tg.create_task(store.get_node(node_id))
+
+    data_by_short_name = {}
+    for node_id, data in data.items():
+        node = await nodes[node_id]
+        if node:
+            data_by_short_name[node.short_name] = data
+        else:
+            data_by_short_name[node_id_to_hex(node_id)] = data
+
+    fig, ax1 = plt.subplots(figsize=(10, 10))
+    ax1.set_xlabel('time')
+    ax1.set_ylabel('SNR')
+    df = DataFrame(data_by_short_name, index=dates)
+    sns.lineplot(data=df)
+
+    png = io.BytesIO()
+    plt.savefig(png, dpi=100)
+
+    return web.Response(
+        body=png.getvalue(),
+        content_type="image/png",
+    )
 
 
 async def run_server(bind, port, tls_cert):
