@@ -18,8 +18,7 @@ async def main(args):
 
     await database.create_tables()
     async with asyncio.TaskGroup() as tg:
-        for topic in args.topic:
-            tg.create_task(load_database_from_mqtt(topic))
+        tg.create_task(load_database_from_mqtt(args.topic))
         tg.create_task(web.run_server(args.bind, args.port, args.tls_cert))
         if args.acme_challenge:
             tg.create_task(http.run_server(args.bind, args.acme_challenge))
