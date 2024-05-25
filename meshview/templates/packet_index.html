@@ -2,6 +2,12 @@
 
 {% block body %}
     <div class="container">
-        {% include 'packet.html' %}
+        <div class="row">
+            <div class="col-6">
+                {% include 'packet.html' %}
+            </div>
+            <div class="col-6 sticky-top" id="packet_details">
+            </div>
+        </div>
     </div>
 {% endblock %}

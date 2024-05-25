@@ -180,16 +180,6 @@ message Config {
      * Disables the triple-press of user button to enable or disable GPS
      */
     bool disable_triple_click = 10;
-
-    /*
-     * POSIX Timezone definition string from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv.
-     */
-    string tzdef = 11;
-
-    /*
-     * If true, disable the default blinking LED (LED_PIN) behavior on the device 
-     */
-    bool led_heartbeat_disabled = 12;
   }
 
   /*
@@ -360,28 +350,30 @@ message Config {
    */
   message PowerConfig {
     /*
-     * Description: Will sleep everything as much as possible, for the tracker and sensor role this will also include the lora radio. 
-     * Don't use this setting if you want to use your device with the phone apps or are using a device without a user button.
-     * Technical Details: Works for ESP32 devices and NRF52 devices in the Sensor or Tracker roles
+     * If set, we are powered from a low-current source (i.e. solar), so even if it looks like we have power flowing in
+     * we should try to minimize power consumption as much as possible.
+     * YOU DO NOT NEED TO SET THIS IF YOU'VE set is_router (it is implied in that case).
+     * Advanced Option
      */
     bool is_power_saving = 1;
 
     /*
-     *  Description: If non-zero, the device will fully power off this many seconds after external power is removed.
+     * If non-zero, the device will fully power off this many seconds after external power is removed.
      */
     uint32 on_battery_shutdown_after_secs = 2;
 
     /*
      * Ratio of voltage divider for battery pin eg. 3.20 (R1=100k, R2=220k)
      * Overrides the ADC_MULTIPLIER defined in variant for battery voltage calculation.
-     * https://meshtastic.org/docs/configuration/radio/power/#adc-multiplier-override
-     * Should be set to floating point value between 2 and 6
+     * Should be set to floating point value between 2 and 4
+     * Fixes issues on Heltec v2
      */
     float adc_multiplier_override = 3;
 
     /*
-     *  Description: The number of seconds for to wait before turning off BLE in No Bluetooth states
-     *  Technical Details: ESP32 Only 0 for default of 1 minute
+     * Wait Bluetooth Seconds
+     * The number of seconds for to wait before turning off BLE in No Bluetooth states
+     * 0 for default of 1 minute
      */
     uint32 wait_bluetooth_secs = 4;
 
@@ -394,14 +386,17 @@ message Config {
     uint32 sds_secs = 6;
 
     /*
-     * Description: In light sleep the CPU is suspended, LoRa radio is on, BLE is off an GPS is on
-     * Technical Details: ESP32 Only 0 for default of 300
+     * Light Sleep Seconds
+     * In light sleep the CPU is suspended, LoRa radio is on, BLE is off an GPS is on
+     * ESP32 Only
+     * 0 for default of 300
      */
     uint32 ls_secs = 7;
 
     /*
-     * Description: While in light sleep when we receive packets on the LoRa radio we will wake and handle them and stay awake in no BLE mode for this value
-     * Technical Details: ESP32 Only 0 for default of 10 seconds
+     * Minimum Wake Seconds
+     * While in light sleep when we receive packets on the LoRa radio we will wake and handle them and stay awake in no BLE mode for this value
+     * 0 for default of 10 seconds
      */
     uint32 min_wake_secs = 8;
 
