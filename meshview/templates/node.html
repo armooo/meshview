@@ -90,7 +90,7 @@
     L.marker(trace[0]).addTo(map);
     {% for n in neighbors %}
     var m = L.circleMarker({{n.location | tojson}});
-    m.bindPopup('SNR: {{n.snr}}<br/><a href="/packet_list/{{n.node_id}}">{{n.name}} {{n.node_id | node_id_to_hex}}</a>');
+    m.bindPopup('SNR: {{n.snr}}<br/><a href="/packet_list/{{n.node_id}}">[{{n.short_name}}] {{n.long_name}} {{n.node_id | node_id_to_hex}}</a>');
     m.addTo(map);
     L.polyline([trace[0], {{n.location | tojson}}], {color: 'red'}).addTo(map);
     {% endfor %}

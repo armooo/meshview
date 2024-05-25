@@ -56,7 +56,8 @@ async def build_neighbors(node_id):
     for node_id, node in neighbors:
         node = await node
         if node and node.last_lat and node.last_long:
-            results[node_id]['name'] = node.long_name
+            results[node_id]['short_name'] = node.short_name
+            results[node_id]['long_name'] = node.long_name
             results[node_id]['location'] = (node.last_lat * 1e-7, node.last_long * 1e-7)
         else:
             del results[node_id]
