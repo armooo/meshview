@@ -103,6 +103,7 @@ class Packet:
     to_node: models.Node
     portnum: int
     data: str
+    raw_mesh_packet: object
     raw_payload: object
     payload: str
     pretty_payload: Markup
@@ -153,6 +154,7 @@ class Packet:
             payload=text_payload,
             pretty_payload=pretty_payload,
             import_time=packet.import_time,
+            raw_mesh_packet=mesh_packet,
             raw_payload=payload,
         )
 

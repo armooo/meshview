@@ -41,6 +41,18 @@
                     {% if packet.pretty_payload %}
                     <div>{{packet.pretty_payload}}<div>
                     {% endif %}
+                    {% if packet.raw_mesh_packet.decoded.portnum == 70 %}
+                        <ul>
+                            {% for node_id in packet.raw_payload.route %}
+                                <li><a
+                                        href="/packet_list/{{node_id}}"
+                                    >
+                                        {{node_id | node_id_to_hex}}
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
                     <pre>{{packet.payload}}</pre>
                 </dd>
             </dl>
