@@ -91,7 +91,7 @@ async def process_envelope(topic, env):
             position = decode_payload.decode_payload(
                 PortNum.POSITION_APP, env.packet.decoded.payload
             )
-            if position.latitude_i and position.longitude_i:
+            if position and position.latitude_i and position.longitude_i:
                 from_node_id = getattr(env.packet, 'from')
                 node = (await session.execute(select(Node).where(Node.node_id == from_node_id))).scalar_one_or_none()
                 if node:

@@ -435,6 +435,8 @@ async def graph_power(request):
     voltage = []
     for p in await store.get_packets_from(int(request.match_info['node_id']), PortNum.TELEMETRY_APP):
         _, payload = decode_payload.decode(p)
+        if not payload:
+            continue
         if not payload.HasField('device_metrics'):
             continue
         timestamp = datetime.datetime.fromtimestamp(payload.time)
@@ -485,6 +487,8 @@ async def graph_neighbors(request):
     dates =[]
     for p in await store.get_packets_from(int(request.match_info['node_id']), PortNum.NEIGHBORINFO_APP):
         _, payload = decode_payload.decode(p)
+        if not payload:
+            continue
         if p.import_time < oldest:
             break
 
