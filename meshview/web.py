@@ -7,6 +7,7 @@ from aiohttp_sse import sse_response
 import ssl
 import re
 
+import pydot
 from pandas import DataFrame
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -525,6 +526,90 @@ async def graph_neighbors(request):
     return web.Response(
         body=png.getvalue(),
         content_type="image/png",
+    )
+
+
+@routes.get("/graph/traceroute/{packet_id}")
+async def graph_traceroute(request):
+    packet_id = int(request.match_info['packet_id'])
+    traceroutes = list(await store.get_traceroute(packet_id))
+
+    packet = await store.get_packet(packet_id)
+
+    node_ids = set()
+    for tr in traceroutes:
+        route = decode_payload.decode_payload(PortNum.TRACEROUTE_APP, tr.route)
+        node_ids.add(tr.gateway_node_id)
+        for node_id in route.route:
+            node_ids.add(node_id)
+    node_ids.add(packet.from_node_id)
+    node_ids.add(packet.to_node_id)
+
+    nodes = {}
+    async with asyncio.TaskGroup() as tg:
+        for node_id in node_ids:
+            nodes[node_id] = tg.create_task(store.get_node(node_id))
+
+    graph = pydot.Dot('traceroute', graph_type="digraph")
+
+    paths = set()
+    node_color = {}
+    mqtt_nodes = set()
+    saw_reply = set()
+    dest = None
+    for tr in traceroutes:
+        if tr.done:
+            saw_reply.add(tr.gateway_node_id)
+        if tr.done and dest:
+            continue
+        route = decode_payload.decode_payload(PortNum.TRACEROUTE_APP, tr.route)
+        path = [packet.from_node_id]
+        path.extend(route.route)
+        if tr.done:
+            dest = packet.to_node_id
+            path.append(packet.to_node_id)
+        elif path[-1] != tr.gateway_node_id:
+            # It seems some nodes add them self to the list before uplinking
+            path.append(tr.gateway_node_id)
+        mqtt_nodes.add(tr.gateway_node_id)
+        node_color[path[-1]] = '#' + hex(hash(tuple(path)))[3:9]
+        paths.add(tuple(path))
+
+    used_nodes = set()
+    for path in paths:
+        used_nodes.update(path)
+
+    for node_id in used_nodes:
+        node = await nodes[node_id]
+        if not node:
+            node_name = node_id_to_hex(node_id)
+        else:
+            node_name = f'[{node.short_name}] {node.long_name} - {node_id_to_hex(node_id)}'
+        style = 'dashed'
+        if node_id == dest:
+            style = 'filled'
+        elif node_id in mqtt_nodes:
+            style = 'solid'
+
+        if node_id in saw_reply:
+            style += ', diagonals'
+
+        graph.add_node(pydot.Node(
+            str(node_id),
+            label=node_name,
+            shape='box',
+            color=node_color.get(node_id, 'black'),
+            style=style,
+        ))
+
+    for path in paths:
+        color = '#' + hex(hash(tuple(path)))[3:9]
+        for src, dest in zip(path, path[1:]):
+            graph.add_edge(pydot.Edge(src, dest, color=color))
+
+    return web.Response(
+        body=graph.create_svg(),
+        content_type="image/svg+xml",
     )
 
 

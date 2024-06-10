@@ -6,7 +6,7 @@ from meshtastic.portnums_pb2 import PortNum
 from meshtastic.mesh_pb2 import User, HardwareModel
 from meshview import database
 from meshview import decode_payload
-from meshview.models import Packet, PacketSeen, Node
+from meshview.models import Packet, PacketSeen, Node, Traceroute
 from meshview import notify
 
 
@@ -99,6 +99,18 @@ async def process_envelope(topic, env):
                     node.last_long = position.longitude_i
                     session.add(node)
 
+        if env.packet.decoded.portnum == PortNum.TRACEROUTE_APP:
+            if env.packet.decoded.want_response:
+                packet_id = env.packet.id
+            else:
+                packet_id = env.packet.decoded.request_id
+            session.add(Traceroute(
+                packet_id=packet_id,
+                route=env.packet.decoded.payload,
+                done=not env.packet.decoded.want_response,
+                gateway_node_id=int(env.gateway_id[1:], 16),
+            ))
+
         await session.commit()
         if new_packet:
             await packet.awaitable_attrs.to_node
@@ -188,3 +200,12 @@ async def has_packets(node_id, portnum):
                     select(Packet.id).where(Packet.from_node_id == node_id).limit(1)
             )).scalar()
         )
+
+
+async def get_traceroute(packet_id):
+    async with database.async_session() as session:
+        result = await session.execute(
+                select(Traceroute)
+                .where(Traceroute.packet_id == packet_id)
+        )
+        return result.scalars()

@@ -51,3 +51,13 @@ class PacketSeen(Base):
     rx_rssi: Mapped[int] = mapped_column(nullable=True)
     topic: Mapped[str]
     import_time: Mapped[datetime]
+
+
+class Traceroute(Base):
+    __tablename__ = "traceroute"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    packet_id = mapped_column(ForeignKey("packet.id"))
+    gateway_node_id: Mapped[int] = mapped_column(BigInteger)
+    done: Mapped[bool]
+    route: Mapped[bytes]
+
