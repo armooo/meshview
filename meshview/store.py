@@ -109,6 +109,7 @@ async def process_envelope(topic, env):
                 route=env.packet.decoded.payload,
                 done=not env.packet.decoded.want_response,
                 gateway_node_id=int(env.gateway_id[1:], 16),
+                import_time=datetime.datetime.utcnow(),
             ))
 
         await session.commit()
@@ -207,5 +208,6 @@ async def get_traceroute(packet_id):
         result = await session.execute(
                 select(Traceroute)
                 .where(Traceroute.packet_id == packet_id)
+                .order_by(Traceroute.import_time)
         )
         return result.scalars()

@@ -60,4 +60,5 @@ class Traceroute(Base):
     gateway_node_id: Mapped[int] = mapped_column(BigInteger)
     done: Mapped[bool]
     route: Mapped[bytes]
+    import_time: Mapped[datetime]
 
