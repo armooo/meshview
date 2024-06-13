@@ -6,7 +6,12 @@
             <div class="col-6">
                 {% include 'packet.html' %}
             </div>
-            <div class="col-6 sticky-top" id="packet_details">
+            <div
+                class="col-6 sticky-top"
+                id="packet_details"
+                hx-get="/packet_details/{{packet.id}}"
+                hx-trigger="load"
+            >
             </div>
         </div>
     </div>
