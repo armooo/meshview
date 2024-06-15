@@ -211,3 +211,14 @@ async def get_traceroute(packet_id):
                 .order_by(Traceroute.import_time)
         )
         return result.scalars()
+
+
+async def get_traceroutes(since):
+    async with database.async_session() as session:
+        result = await session.execute(
+                select(Traceroute)
+                .join(Packet)
+                .where(Traceroute.import_time > (datetime.datetime.utcnow() - since))
+                .order_by(Traceroute.import_time)
+        )
+        return result.scalars()

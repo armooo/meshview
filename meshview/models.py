@@ -57,6 +57,9 @@ class Traceroute(Base):
     __tablename__ = "traceroute"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     packet_id = mapped_column(ForeignKey("packet.id"))
+    packet: Mapped["Packet"] = relationship(
+        primaryjoin="Traceroute.packet_id == foreign(Packet.id)", lazy="joined"
+    )
     gateway_node_id: Mapped[int] = mapped_column(BigInteger)
     done: Mapped[bool]
     route: Mapped[bytes]

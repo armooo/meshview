@@ -1,6 +1,7 @@
 import asyncio
 import io
 
+from collections import Counter
 from dataclasses import dataclass
 import datetime
 from aiohttp_sse import sse_response
@@ -620,6 +621,83 @@ async def graph_traceroute(request):
         color = '#' + hex(hash(tuple(path)))[3:9]
         for src, dest in zip(path, path[1:]):
             graph.add_edge(pydot.Edge(src, dest, color=color))
+
+    return web.Response(
+        body=graph.create_svg(),
+        content_type="image/svg+xml",
+    )
+
+@routes.get("/graph/network")
+async def graph_traceroute(request):
+    nodes = {}
+    node_ids = set()
+
+    traceroutes = []
+    for tr in await store.get_traceroutes(datetime.timedelta(days=1)):
+        node_ids.add(tr.gateway_node_id)
+        node_ids.add(tr.packet.from_node_id)
+        node_ids.add(tr.packet.to_node_id)
+        route = decode_payload.decode_payload(PortNum.TRACEROUTE_APP, tr.route)
+        node_ids.update(route.route)
+
+        path = [tr.packet.from_node_id]
+        path.extend(route.route)
+        if path[-1] != tr.gateway_node_id:
+            # It seems some nodes add them self to the list before uplinking
+            path.append(tr.gateway_node_id)
+        traceroutes.append((tr, path))
+
+    async with asyncio.TaskGroup() as tg:
+        for node_id in node_ids:
+            nodes[node_id] = tg.create_task(store.get_node(node_id))
+
+    edges = Counter()
+    tr_done = set()
+    used_nodes = set()
+    for tr, path in traceroutes:
+        if tr.done:
+            if tr.packet_id in tr_done:
+                continue
+            else:
+                tr_done.add(tr.packet_id)
+
+        for src, dest in zip(path, path[1:]):
+            used_nodes.add(src)
+            used_nodes.add(dest)
+            edges[(src, dest)] += 1
+
+
+    #graph = pydot.Dot('network', graph_type="digraph", layout="fdp", overlap="false")
+    graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", beautify="true", overlap="prism")
+    for node_id in used_nodes:
+        node = await nodes[node_id]
+        if not node:
+            node_name = node_id_to_hex(node_id)
+        else:
+            node_name = f'[{node.short_name}] {node.long_name}\n{node_id_to_hex(node_id)}'
+        graph.add_node(pydot.Node(
+            str(node_id),
+            label=node_name,
+            shape='box',
+        ))
+
+    if edges:
+        max_edge_count = edges.most_common(1)[0][1]
+    else:
+        max_edge_count = 1
+
+    size_ratio = 2. / max_edge_count
+
+    for (src, dest), edge_count in edges.items():
+        size = max(size_ratio * edge_count, .25)
+        arrowsize = max(size_ratio * edge_count, .5)
+        graph.add_edge(pydot.Edge(
+            str(src),
+            str(dest),
+            weight=size,
+            penwidth=size,
+            arrowsize=arrowsize,
+        ))
 
     return web.Response(
         body=graph.create_svg(),
