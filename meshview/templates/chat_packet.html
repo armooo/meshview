@@ -1,5 +1,5 @@
 <div class="row chat-packet">
-    <span class="col-2 timestamp">{{packet.import_time | format_timestamp}}</span>
-    <span class="col-3 username"><a href="https://meshview.armooo.net/packet_list/{{packet.from_node_id}}">{{packet.from_node.long_name or (packet.from_node_id | node_id_to_hex) }}</a></span>
+    <span class="col-3 timestamp">{{packet.import_time | format_timestamp}} <a href="/packet/{{packet.id}}">✉️</a></span>
+    <span class="col-3 username"><a href="/packet_list/{{packet.from_node_id}}">{{packet.from_node.long_name or (packet.from_node_id | node_id_to_hex) }}</a></span>
     <span class="col message">{{packet.payload}}</span>
 </div>
