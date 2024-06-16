@@ -680,8 +680,7 @@ async def graph_network(request):
             used_nodes.add(src)
             used_nodes.add(dest)
             edges[(src, dest)] += 1
-            if (src, dest) not in edge_type:
-                edge_type[(src, dest)] = 'tr'
+            edge_type[(src, dest)] = 'tr'
 
 
     #graph = pydot.Dot('network', graph_type="digraph", layout="fdp", overlap="false")
