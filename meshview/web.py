@@ -647,13 +647,28 @@ async def graph_traceroute(request):
             path.append(tr.gateway_node_id)
         traceroutes.append((tr, path))
 
+    edges = Counter()
+    edge_type = {}
+    used_nodes = set()
+
+    for packet in await store.get_packets(
+        portnum=PortNum.NEIGHBORINFO_APP,
+        since=datetime.timedelta(days=1)
+    ):
+        _, neighbor_info = decode_payload.decode(packet)
+        node_ids.add(packet.from_node_id)
+        used_nodes.add(packet.from_node_id)
+        for node in neighbor_info.neighbors:
+            node_ids.add(node.node_id)
+            used_nodes.add(node.node_id)
+            edges[(node.node_id, packet.from_node_id)] += 1
+            edge_type[(node.node_id, packet.from_node_id)] = 'ni'
+
     async with asyncio.TaskGroup() as tg:
         for node_id in node_ids:
             nodes[node_id] = tg.create_task(store.get_node(node_id))
 
-    edges = Counter()
     tr_done = set()
-    used_nodes = set()
     for tr, path in traceroutes:
         if tr.done:
             if tr.packet_id in tr_done:
@@ -665,10 +680,12 @@ async def graph_traceroute(request):
             used_nodes.add(src)
             used_nodes.add(dest)
             edges[(src, dest)] += 1
+            if (src, dest) not in edge_type:
+                edge_type[(src, dest)] = 'tr'
 
 
     #graph = pydot.Dot('network', graph_type="digraph", layout="fdp", overlap="false")
-    graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", beautify="true", overlap="prism")
+    graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism", quadtree="normal", repulsiveforce="1.5", k="1")
     for node_id in used_nodes:
         node = await nodes[node_id]
         if not node:
@@ -691,12 +708,17 @@ async def graph_traceroute(request):
     for (src, dest), edge_count in edges.items():
         size = max(size_ratio * edge_count, .25)
         arrowsize = max(size_ratio * edge_count, .5)
+        if edge_type[(src, dest)] == 'ni':
+            color = '#FF0000'
+        else:
+            color = '#000000'
         graph.add_edge(pydot.Edge(
             str(src),
             str(dest),
-            weight=size,
-            penwidth=size,
-            arrowsize=arrowsize,
+            color=color,
+            #weight=size,
+            #penwidth=size,
+            #arrowsize=arrowsize,
         ))
 
     return web.Response(
