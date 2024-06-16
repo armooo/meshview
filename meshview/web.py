@@ -628,7 +628,7 @@ async def graph_traceroute(request):
     )
 
 @routes.get("/graph/network")
-async def graph_traceroute(request):
+async def graph_network(request):
     nodes = {}
     node_ids = set()
 
@@ -688,14 +688,18 @@ async def graph_traceroute(request):
     graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism", quadtree="normal", repulsiveforce="1.5", k="1")
     for node_id in used_nodes:
         node = await nodes[node_id]
+        color = '#000000'
         if not node:
             node_name = node_id_to_hex(node_id)
         else:
             node_name = f'[{node.short_name}] {node.long_name}\n{node_id_to_hex(node_id)}'
+            if node.role in ('ROUTER', 'ROUTER_CLIENT', 'REPEATER'):
+                color = '#0000FF'
         graph.add_node(pydot.Node(
             str(node_id),
             label=node_name,
             shape='box',
+            color=color,
         ))
 
     if edges:
