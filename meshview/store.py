@@ -2,6 +2,7 @@ import datetime
 
 from sqlalchemy import select
 
+from meshtastic.config_pb2 import Config
 from meshtastic.portnums_pb2 import PortNum
 from meshtastic.mesh_pb2 import User, HardwareModel
 from meshview import database
@@ -71,12 +72,17 @@ async def process_envelope(topic, env):
                     hw_model = HardwareModel.Name(user.hw_model)
                 except ValueError:
                     hw_model = "unknown"
+                try:
+                   role = Config.DeviceConfig.Role.Name(user.role)
+                except ValueError:
+                    role = "unknown"
 
                 if node := result.scalar_one_or_none():
                     node.node_id = node_id
                     node.long_name = user.long_name
                     node.short_name = user.short_name
                     node.hw_model = hw_model
+                    node.role = role
                 else:
                     node = Node(
                         id=user.id,
@@ -84,8 +90,9 @@ async def process_envelope(topic, env):
                         long_name=user.long_name,
                         short_name=user.short_name,
                         hw_model=hw_model,
+                        role=role,
                     )
-                session.add(node)
+                    session.add(node)
 
         if env.packet.decoded.portnum == PortNum.POSITION_APP:
             position = decode_payload.decode_payload(

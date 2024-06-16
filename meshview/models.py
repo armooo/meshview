@@ -17,6 +17,7 @@ class Node(Base):
     long_name: Mapped[str]
     short_name: Mapped[str]
     hw_model: Mapped[str]
+    role: Mapped[str] = mapped_column(nullable=True)
     last_lat: Mapped[int] = mapped_column(BigInteger, nullable=True)
     last_long: Mapped[int] = mapped_column(BigInteger, nullable=True)
 
