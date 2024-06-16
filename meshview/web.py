@@ -642,9 +642,12 @@ async def graph_network(request):
 
         path = [tr.packet.from_node_id]
         path.extend(route.route)
-        if path[-1] != tr.gateway_node_id:
-            # It seems some nodes add them self to the list before uplinking
-            path.append(tr.gateway_node_id)
+        if tr.done:
+            path.append(tr.packet.to_node_id)
+        else:
+            if path[-1] != tr.gateway_node_id:
+                # It seems some nodes add them self to the list before uplinking
+                path.append(tr.gateway_node_id)
         traceroutes.append((tr, path))
 
     edges = Counter()
@@ -683,7 +686,6 @@ async def graph_network(request):
             edge_type[(src, dest)] = 'tr'
 
 
-    #graph = pydot.Dot('network', graph_type="digraph", layout="fdp", overlap="false")
     graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism", quadtree="normal", repulsiveforce="1.5", k="1")
     for node_id in used_nodes:
         node = await nodes[node_id]
