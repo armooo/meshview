@@ -629,11 +629,15 @@ async def graph_traceroute(request):
 
 @routes.get("/graph/network")
 async def graph_network(request):
+    root = request.query.get("root")
+    depth = int(request.query.get("depth", 5))
+    hours = int(request.query.get("hours", 24))
+
     nodes = {}
     node_ids = set()
 
     traceroutes = []
-    for tr in await store.get_traceroutes(datetime.timedelta(days=1)):
+    for tr in await store.get_traceroutes(datetime.timedelta(hours=hours)):
         node_ids.add(tr.gateway_node_id)
         node_ids.add(tr.packet.from_node_id)
         node_ids.add(tr.packet.to_node_id)
@@ -656,7 +660,7 @@ async def graph_network(request):
 
     for packet in await store.get_packets(
         portnum=PortNum.NEIGHBORINFO_APP,
-        since=datetime.timedelta(days=1)
+        since=datetime.timedelta(hours=hours)
     ):
         _, neighbor_info = decode_payload.decode(packet)
         node_ids.add(packet.from_node_id)
@@ -685,22 +689,52 @@ async def graph_network(request):
             edges[(src, dest)] += 1
             edge_type[(src, dest)] = 'tr'
 
-
-    graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism", quadtree="normal", repulsiveforce="1.5", k="1")
-    for node_id in used_nodes:
+    async def get_node_name(node_id):
         node = await nodes[node_id]
-        color = '#000000'
         if not node:
             node_name = node_id_to_hex(node_id)
         else:
             node_name = f'[{node.short_name}] {node.long_name}\n{node_id_to_hex(node_id)}'
-            if node.role in ('ROUTER', 'ROUTER_CLIENT', 'REPEATER'):
-                color = '#0000FF'
+        return node_name
+
+    if root:
+        new_used_nodes = set()
+        new_edges = Counter()
+        edge_map = {}
+        for src, dest in edges:
+            edge_map.setdefault(dest, []).append(src)
+
+        queue = [int(root)]
+        for i in range(depth):
+            next_queue = []
+            for node in queue:
+                new_used_nodes.add(node)
+                for dest in edge_map.get(node, []):
+                    new_used_nodes.add(dest)
+                    new_edges[(dest, node)] += 1
+                    next_queue.append(dest)
+            queue = next_queue
+
+        used_nodes = new_used_nodes
+        edges = new_edges
+
+    #graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism", quadtree="2", repulsiveforce="1.5", k="1", overlap_scaling="1.5", concentrate=True)
+    #graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism1000", overlap_scaling="-4", sep="1000", pack="true")
+    graph = pydot.Dot('network', graph_type="digraph", layout="neato", overlap="false", model='subset', concentrate=True, esep="+5")
+    for node_id in used_nodes:
+        node = await nodes[node_id]
+        color = '#000000'
+        node_name = await get_node_name(node_id)
+        if node and node.role in ('ROUTER', 'ROUTER_CLIENT', 'REPEATER'):
+            color = '#0000FF'
+        elif node and node.role == 'CLIENT_MUTE':
+            color = '#00FF00'
         graph.add_node(pydot.Node(
             str(node_id),
             label=node_name,
             shape='box',
             color=color,
+            href=f"/graph/network?root={node_id}&amp;depth={depth-1}",
         ))
 
     if edges:
@@ -709,6 +743,7 @@ async def graph_network(request):
         max_edge_count = 1
 
     size_ratio = 2. / max_edge_count
+
 
     for (src, dest), edge_count in edges.items():
         size = max(size_ratio * edge_count, .25)
@@ -721,8 +756,9 @@ async def graph_network(request):
             str(src),
             str(dest),
             color=color,
+            tooltip=f'{await get_node_name(src)} -> {await get_node_name(dest)}',
             #weight=size,
-            #penwidth=size,
+            penwidth=1.75,
             #arrowsize=arrowsize,
         ))
 
