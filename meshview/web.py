@@ -720,7 +720,7 @@ async def graph_network(request):
 
     #graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism", quadtree="2", repulsiveforce="1.5", k="1", overlap_scaling="1.5", concentrate=True)
     #graph = pydot.Dot('network', graph_type="digraph", layout="sfdp", overlap="prism1000", overlap_scaling="-4", sep="1000", pack="true")
-    graph = pydot.Dot('network', graph_type="digraph", layout="neato", overlap="false", model='subset', concentrate=True, esep="+5")
+    graph = pydot.Dot('network', graph_type="digraph", layout="neato", overlap="false", model='subset', esep="+5")
     for node_id in used_nodes:
         node = await nodes[node_id]
         color = '#000000'
@@ -745,6 +745,8 @@ async def graph_network(request):
     size_ratio = 2. / max_edge_count
 
 
+    edge_added = set()
+
     for (src, dest), edge_count in edges.items():
         size = max(size_ratio * edge_count, .25)
         arrowsize = max(size_ratio * edge_count, .5)
@@ -752,15 +754,21 @@ async def graph_network(request):
             color = '#FF0000'
         else:
             color = '#000000'
-        graph.add_edge(pydot.Edge(
-            str(src),
-            str(dest),
-            color=color,
-            tooltip=f'{await get_node_name(src)} -> {await get_node_name(dest)}',
-            #weight=size,
-            penwidth=1.75,
-            #arrowsize=arrowsize,
-        ))
+        edge_dir = "forward"
+        if (dest, src) in edges and edge_type[(src, dest)] == edge_type[(dest, src)]:
+            edge_dir = "both"
+            edge_added.add((dest, src))
+
+        if (src, dest) not in edge_added:
+            edge_added.add((src, dest))
+            graph.add_edge(pydot.Edge(
+                str(src),
+                str(dest),
+                color=color,
+                tooltip=f'{await get_node_name(src)} -> {await get_node_name(dest)}',
+                penwidth=1.85,
+                dir=edge_dir,
+            ))
 
     return web.Response(
         body=graph.create_svg(),

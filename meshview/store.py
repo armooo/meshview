@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from meshtastic.config_pb2 import Config
 from meshtastic.portnums_pb2 import PortNum
