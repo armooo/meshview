@@ -536,6 +536,10 @@ async def graph_traceroute(request):
     traceroutes = list(await store.get_traceroute(packet_id))
 
     packet = await store.get_packet(packet_id)
+    if not packet:
+        return web.Response(
+            status=404,
+        )
 
     node_ids = set()
     for tr in traceroutes:
@@ -632,12 +636,13 @@ async def graph_network(request):
     root = request.query.get("root")
     depth = int(request.query.get("depth", 5))
     hours = int(request.query.get("hours", 24))
+    since = datetime.timedelta(hours=hours)
 
     nodes = {}
     node_ids = set()
 
     traceroutes = []
-    for tr in await store.get_traceroutes(datetime.timedelta(hours=hours)):
+    for tr in await store.get_traceroutes(since):
         node_ids.add(tr.gateway_node_id)
         node_ids.add(tr.packet.from_node_id)
         node_ids.add(tr.packet.to_node_id)
@@ -658,9 +663,17 @@ async def graph_network(request):
     edge_type = {}
     used_nodes = set()
 
+    for ps, p in await store.get_mqtt_neighbors(since):
+        node_ids.add(ps.node_id)
+        node_ids.add(p.from_node_id)
+        used_nodes.add(ps.node_id)
+        used_nodes.add(p.from_node_id)
+        edges[(p.from_node_id, ps.node_id)] += 1
+        edge_type[(p.from_node_id, ps.node_id)] = 'sni'
+
     for packet in await store.get_packets(
         portnum=PortNum.NEIGHBORINFO_APP,
-        since=datetime.timedelta(hours=hours)
+        since=since,
     ):
         _, neighbor_info = decode_payload.decode(packet)
         node_ids.add(packet.from_node_id)
@@ -750,8 +763,10 @@ async def graph_network(request):
     for (src, dest), edge_count in edges.items():
         size = max(size_ratio * edge_count, .25)
         arrowsize = max(size_ratio * edge_count, .5)
-        if edge_type[(src, dest)] == 'ni':
+        if edge_type[(src, dest)] in ('ni'):
             color = '#FF0000'
+        elif  edge_type[(src, dest)] in ('sni'):
+            color = '#00FF00'
         else:
             color = '#000000'
         edge_dir = "forward"

@@ -1,6 +1,7 @@
 import datetime
 
 from sqlalchemy import select, func
+from sqlalchemy.orm import lazyload
 
 from meshtastic.config_pb2 import Config
 from meshtastic.portnums_pb2 import PortNum
@@ -48,6 +49,7 @@ async def process_envelope(topic, env):
                 rx_snr=env.packet.rx_snr,
                 rx_rssi=env.packet.rx_rssi,
                 hop_limit=env.packet.hop_limit,
+                hop_start=env.packet.hop_start,
                 topic=topic,
                 import_time=datetime.datetime.utcnow(),
             )
@@ -110,7 +112,9 @@ async def process_envelope(topic, env):
             if env.packet.decoded.want_response:
                 packet_id = env.packet.id
             else:
-                packet_id = env.packet.decoded.request_id
+                result = await session.execute(select(Packet).where(Packet.id == env.packet.decoded.request_id))
+                if result.scalar_one_or_none():
+                    packet_id = env.packet.decoded.request_id
             session.add(Traceroute(
                 packet_id=packet_id,
                 route=env.packet.decoded.payload,
@@ -234,3 +238,21 @@ async def get_traceroutes(since):
                 .order_by(Traceroute.import_time)
         )
         return result.scalars()
+
+
+async def get_mqtt_neighbors(since):
+    async with database.async_session() as session:
+        result = await session.execute(select(PacketSeen, Packet)
+            .join(Packet)
+            .where(
+                (PacketSeen.hop_limit == PacketSeen.hop_start)
+                & (PacketSeen.hop_start != 0)
+                & (PacketSeen.import_time > (datetime.datetime.utcnow() - since))
+            )
+            .options(
+                lazyload(Packet.from_node),
+                lazyload(Packet.to_node),
+            )
+        )
+        return result
+

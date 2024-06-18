@@ -47,6 +47,7 @@ class PacketSeen(Base):
     )
     rx_time: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     hop_limit: Mapped[int]
+    hop_start: Mapped[int] = mapped_column(nullable=True)
     channel: Mapped[str]
     rx_snr: Mapped[float] = mapped_column(nullable=True)
     rx_rssi: Mapped[int] = mapped_column(nullable=True)
