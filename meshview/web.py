@@ -600,7 +600,7 @@ async def graph_traceroute(request):
         if not node:
             node_name = node_id_to_hex(node_id)
         else:
-            node_name = f'[{node.short_name}] {node.long_name}\n{node_id_to_hex(node_id)}'
+            node_name = f'[{node.short_name}] {node.long_name}\n{node_id_to_hex(node_id)}\n{node.role}'
         if node_id in node_seen_time:
             ms = (node_seen_time[node_id] - first_time).total_seconds() * 1000
             node_name += f'\n {ms:.2f}ms'
