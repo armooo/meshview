@@ -320,6 +320,26 @@ enum HardwareModel {
   LORA_TYPE = 19;
 
   /*
+   * wiphone https://www.wiphone.io/
+   */
+  WIPHONE = 20;
+
+  /*
+   * WIO Tracker WM1110 family from Seeed Studio. Includes wio-1110-tracker and wio-1110-sdk
+   */
+  WIO_WM1110 = 21;
+
+  /*
+   * RAK2560 Solar base station based on RAK4630
+   */
+  RAK2560 = 22;
+
+  /*
+   * Heltec HRU-3601: https://heltec.org/project/hru-3601/
+   */
+  HELTEC_HRU_3601 = 23;
+
+  /*
    * B&Q Consulting Station Edition G1: https://uniteng.com/wiki/doku.php?id=meshtastic:station
    */
   STATION_G1 = 25;
@@ -504,6 +524,40 @@ enum HardwareModel {
    */
   UNPHONE = 59;
 
+  /*
+   * Teledatics TD-LORAC NRF52840 based M.2 LoRA module
+   * Compatible with the TD-WRLS development board
+   */
+  TD_LORAC = 60;
+
+  /*
+   * CDEBYTE EoRa-S3 board using their own MM modules, clone of LILYGO T3S3
+   */
+  CDEBYTE_EORA_S3 = 61;
+
+  /*
+   * TWC_MESH_V4 
+   * Adafruit NRF52840 feather express with SX1262, SSD1306 OLED and NEO6M GPS
+   */
+  TWC_MESH_V4 = 62;
+
+  /*
+   * NRF52_PROMICRO_DIY
+   * Promicro NRF52840 with SX1262/LLCC68, SSD1306 OLED and NEO6M GPS
+   */
+  NRF52_PROMICRO_DIY = 63;
+
+  /*
+   * RadioMaster 900 Bandit Nano, https://www.radiomasterrc.com/products/bandit-nano-expresslrs-rf-module
+   * ESP32-D0WDQ6 With SX1276/SKY66122, SSD1306 OLED and No GPS
+   */
+  RADIOMASTER_900_BANDIT_NANO = 64;
+  
+  /*
+   * Heltec Capsule Sensor V3 with ESP32-S3 CPU, Portable LoRa device that can replace GNSS modules or sensors
+   */
+  HELTEC_CAPSULE_SENSOR_V3 = 65;
+   
   /*
    * ------------------------------------------------------------------------------------------------------------------------------------------
    * Reserved ID For developing private Ports. These will show up in live traffic sparsely, so we can use a high number. Keep it within 8 bits.
@@ -1405,7 +1459,27 @@ message FromRadio {
      * MQTT Client Proxy Message (device sending to client / phone for publishing to MQTT)
      */
     MqttClientProxyMessage mqttClientProxyMessage = 14;
+
+    /*
+     * File system manifest messages
+     */
+    FileInfo fileInfo = 15;
   }
+}
+
+/*
+ * Individual File info for the device
+ */
+message FileInfo {
+  /*
+   * The fully qualified path of the file
+   */
+  string file_name = 1;
+
+  /*
+   * The size of the file in bytes
+   */
+  uint32 size_bytes = 2;
 }
 
 /*
@@ -1598,4 +1672,59 @@ message NodeRemoteHardwarePin {
    * The the available gpio pin for usage with RemoteHardware module
    */
   RemoteHardwarePin pin = 2;
+}
+
+message ChunkedPayload {
+  /*
+   * The ID of the entire payload
+   */
+  uint32 payload_id = 1;
+
+  /*
+   * The total number of chunks in the payload
+   */
+  uint32 chunk_count = 2;
+
+  /*
+   * The current chunk index in the total
+   */
+  uint32 chunk_index = 3;
+
+  /*
+   * The binary data of the current chunk
+   */
+  bytes payload_chunk = 4;
+}
+
+/*
+ * Wrapper message for broken repeated oneof support
+ */
+message resend_chunks {
+    repeated uint32 chunks = 1;
+}
+
+/*
+ * Responses to a ChunkedPayload request
+ */
+message ChunkedPayloadResponse {
+  /*
+   * The ID of the entire payload
+   */
+  uint32 payload_id = 1;
+
+  oneof payload_variant {
+    /*
+     * Request to transfer chunked payload
+     */
+    bool request_transfer = 2;
+
+    /*
+     * Accept the transfer chunked payload
+     */
+    bool accept_transfer = 3;
+    /*
+     * Request missing indexes in the chunked payload
+     */
+    resend_chunks resend_chunks = 4;
+  }
 }
