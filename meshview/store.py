@@ -17,40 +17,40 @@ async def process_envelope(topic, env):
     async with database.async_session() as session:
         result = await session.execute(select(Packet).where(Packet.id == env.packet.id))
         new_packet = False
-        packet = result.scalar_one_or_none()
-        if not packet:
-            new_packet = True
-            packet = Packet(
-                id=env.packet.id,
-                portnum=env.packet.decoded.portnum,
-                from_node_id=getattr(env.packet, "from"),
-                to_node_id=env.packet.to,
-                payload=env.packet.SerializeToString(),
-                import_time=datetime.datetime.utcnow(),
-            )
-            session.add(packet)
-
-        result = await session.execute(
-            select(PacketSeen).where(
-                PacketSeen.packet_id == env.packet.id,
-                PacketSeen.node_id == int(env.gateway_id[1:], 16),
-                PacketSeen.rx_time == env.packet.rx_time,
-            )
+        #packet = result.scalar_one_or_none()
+        #if not packet:
+        new_packet = True
+        packet = Packet(
+            id=env.packet.id,
+            portnum=env.packet.decoded.portnum,
+            from_node_id=getattr(env.packet, "from"),
+            to_node_id=env.packet.to,
+            payload=env.packet.SerializeToString(),
+            import_time=datetime.datetime.utcnow(),
         )
-        seen = None
-        if not result.scalar_one_or_none():
-            seen = PacketSeen(
-                packet_id=env.packet.id,
-                node_id=int(env.gateway_id[1:], 16),
-                channel=env.channel_id,
-                rx_time=env.packet.rx_time,
-                rx_snr=env.packet.rx_snr,
-                rx_rssi=env.packet.rx_rssi,
-                hop_limit=env.packet.hop_limit,
-                topic=topic,
-                import_time=datetime.datetime.utcnow(),
-            )
-            session.add(seen)
+        session.add(packet)
+
+        #result = await session.execute(
+        #    select(PacketSeen).where(
+        #        PacketSeen.packet_id == env.packet.id,
+        #        PacketSeen.node_id == int(env.gateway_id[1:], 16),
+        #        PacketSeen.rx_time == env.packet.rx_time,
+        #    )
+        #)
+        #seen = None
+        #if not result.scalar_one_or_none():
+        seen = PacketSeen(
+            packet_id=env.packet.id,
+            node_id=int(env.gateway_id[1:], 16),
+            channel=env.channel_id,
+            rx_time=env.packet.rx_time,
+            rx_snr=env.packet.rx_snr,
+            rx_rssi=env.packet.rx_rssi,
+            hop_limit=env.packet.hop_limit,
+            topic=topic,
+            import_time=datetime.datetime.utcnow(),
+        )
+        session.add(seen)
 
         if env.packet.decoded.portnum == PortNum.NODEINFO_APP:
             user = decode_payload.decode_payload(
@@ -170,7 +170,7 @@ async def get_packets_from(node_id=None, portnum=None, limit=500):
 
 async def get_packet(packet_id):
     async with database.async_session() as session:
-        q = select(Packet).where(Packet.id == packet_id)
+        q = select(Packet).where(Packet.id == packet_id).limit(1)
         result = await session.execute(q)
         return result.scalar_one_or_none()
 

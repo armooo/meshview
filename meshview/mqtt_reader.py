@@ -30,13 +30,14 @@ async def get_topic_envelopes(topics):
     while True:
         try:
             async with aiomqtt.Client(
-                "mqtt.meshtastic.org", username="meshdev", password="large4cats"
+                "192.168.10.52"
             ) as client:
                 for topic in topics:
                     await client.subscribe(topic)
                 async for msg in client.messages:
                     try:
                         envelope = ServiceEnvelope.FromString(msg.payload)
+                        print(envelope)
                     except DecodeError:
                         continue
                     decrypt(envelope.packet)

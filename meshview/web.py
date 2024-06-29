@@ -573,10 +573,11 @@ async def graph_traceroute(request):
             # It seems some nodes add them self to the list before uplinking
             path.append(tr.gateway_node_id)
 
-        for node_id in path[-2:]:
-            if node_id not in node_seen_time:
-                if tr.import_time:
-                    node_seen_time[node_id] = tr.import_time
+        if not tr.done:
+            for node_id in path[-2:]:
+                if node_id not in node_seen_time:
+                    if tr.import_time:
+                        node_seen_time[node_id] = tr.import_time
 
         mqtt_nodes.add(tr.gateway_node_id)
         node_color[path[-1]] = '#' + hex(hash(tuple(path)))[3:9]
@@ -599,7 +600,7 @@ async def graph_traceroute(request):
         else:
             node_name = f'[{node.short_name}] {node.long_name} - {node_id_to_hex(node_id)}'
         if node_id in node_seen_time:
-            ms = (node_seen_time[node_id] - first_time).total_seconds() / 1000
+            ms = (node_seen_time[node_id] - first_time).total_seconds() * 1000
             node_name += f'\n {ms:.2f}ms'
         style = 'dashed'
         if node_id == dest:

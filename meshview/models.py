@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy.orm import DeclarativeBase, foreign
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import mapped_column, relationship, Mapped
-from sqlalchemy import ForeignKey, BigInteger
+from sqlalchemy import ForeignKey, BigInteger, DateTime
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -23,7 +23,8 @@ class Node(Base):
 
 class Packet(Base):
     __tablename__ = "packet"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    pk: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger)
     portnum: Mapped[int]
     from_node_id: Mapped[int] = mapped_column(BigInteger)
     from_node: Mapped["Node"] = relationship(
@@ -34,17 +35,18 @@ class Packet(Base):
         primaryjoin="Packet.to_node_id == foreign(Node.node_id)", lazy="joined"
     )
     payload: Mapped[bytes]
-    import_time: Mapped[datetime]
+    import_time = mapped_column(DateTime)
 
 
 class PacketSeen(Base):
     __tablename__ = "packet_seen"
-    packet_id = mapped_column(ForeignKey("packet.id"), primary_key=True)
-    node_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    pk: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    packet_id = mapped_column(ForeignKey("packet.id"))
+    node_id: Mapped[int] = mapped_column(BigInteger)
     node: Mapped["Node"] = relationship(
         lazy="joined", primaryjoin="PacketSeen.node_id == foreign(Node.node_id)"
     )
-    rx_time: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    rx_time: Mapped[int] = mapped_column(BigInteger)
     hop_limit: Mapped[int]
     channel: Mapped[str]
     rx_snr: Mapped[float] = mapped_column(nullable=True)
@@ -61,4 +63,3 @@ class Traceroute(Base):
     done: Mapped[bool]
     route: Mapped[bytes]
     import_time: Mapped[datetime]
-
