@@ -32,7 +32,7 @@ async def build_trace(node_id):
     trace = []
     for raw_p in await store.get_packets_from(node_id, PortNum.POSITION_APP):
         p = Packet.from_model(raw_p)
-        if not p.raw_payload.latitude_i or not p.raw_payload.longitude_i:
+        if not p.raw_payload or not p.raw_payload.latitude_i or not p.raw_payload.longitude_i:
             continue
         trace.append((p.raw_payload.latitude_i * 1e-7, p.raw_payload.longitude_i * 1e-7))
     return trace
