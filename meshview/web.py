@@ -30,7 +30,7 @@ env = Environment(loader=PackageLoader("meshview"), autoescape=select_autoescape
 
 async def build_trace(node_id):
     trace = []
-    for raw_p in await store.get_packets_from(node_id, PortNum.POSITION_APP):
+    for raw_p in await store.get_packets_from(node_id, PortNum.POSITION_APP, since=datetime.timedelta(hours=24)):
         p = Packet.from_model(raw_p)
         if not p.raw_payload or not p.raw_payload.latitude_i or not p.raw_payload.longitude_i:
             continue
@@ -39,7 +39,7 @@ async def build_trace(node_id):
 
 
 async def build_neighbors(node_id):
-    packet = (await store.get_packets_from(node_id, PortNum.NEIGHBORINFO_APP, 1)).first()
+    packet = (await store.get_packets_from(node_id, PortNum.NEIGHBORINFO_APP, limit=1)).first()
     if not packet:
         return []
     if packet.import_time < datetime.datetime.utcnow() - datetime.timedelta(days=1):

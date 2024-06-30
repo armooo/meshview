@@ -172,7 +172,7 @@ async def get_packets(node_id=None, portnum=None, since=None, limit=500):
         return result.scalars()
 
 
-async def get_packets_from(node_id=None, portnum=None, limit=500):
+async def get_packets_from(node_id=None, portnum=None, since=None, limit=500):
     async with database.async_session() as session:
         q = select(Packet)
 
@@ -182,6 +182,8 @@ async def get_packets_from(node_id=None, portnum=None, limit=500):
             )
         if portnum:
             q = q.where(Packet.portnum == portnum)
+        if since:
+            q = q.where(Packet.import_time > (datetime.datetime.utcnow() - since))
         result = await session.execute(q.limit(limit).order_by(Packet.import_time.desc()))
         return result.scalars()
 
