@@ -109,19 +109,21 @@ async def process_envelope(topic, env):
                     session.add(node)
 
         if env.packet.decoded.portnum == PortNum.TRACEROUTE_APP:
+            packet_id = None
             if env.packet.decoded.want_response:
                 packet_id = env.packet.id
             else:
                 result = await session.execute(select(Packet).where(Packet.id == env.packet.decoded.request_id))
                 if result.scalar_one_or_none():
                     packet_id = env.packet.decoded.request_id
-            session.add(Traceroute(
-                packet_id=packet_id,
-                route=env.packet.decoded.payload,
-                done=not env.packet.decoded.want_response,
-                gateway_node_id=int(env.gateway_id[1:], 16),
-                import_time=datetime.datetime.utcnow(),
-            ))
+            if packet_id is not None:
+                session.add(Traceroute(
+                    packet_id=packet_id,
+                    route=env.packet.decoded.payload,
+                    done=not env.packet.decoded.want_response,
+                    gateway_node_id=int(env.gateway_id[1:], 16),
+                    import_time=datetime.datetime.utcnow(),
+                ))
 
         await session.commit()
         if new_packet:
