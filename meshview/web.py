@@ -10,6 +10,7 @@ import re
 
 import pydot
 from pandas import DataFrame
+import plotly.express as px
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -527,6 +528,48 @@ async def graph_neighbors(request):
     return web.Response(
         body=png.getvalue(),
         content_type="image/png",
+    )
+
+@routes.get("/graph/neighbors2/{node_id}")
+async def graph_neighbors2(request):
+    oldest = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+
+    data = []
+    node_ids = set()
+    for p in await store.get_packets_from(int(request.match_info['node_id']), PortNum.NEIGHBORINFO_APP):
+        _, payload = decode_payload.decode(p)
+        if not payload:
+            continue
+        if p.import_time < oldest:
+            break
+
+        for n in payload.neighbors:
+            node_ids.add(n.node_id)
+            data.append({
+                'time': p.import_time,
+                'snr': n.snr,
+                'node_id': n.node_id,
+            })
+
+    nodes = {}
+    async with asyncio.TaskGroup() as tg:
+        for node_id in node_ids:
+            nodes[node_id] = tg.create_task(store.get_node(node_id))
+
+    for d in data:
+        node = await nodes[d['node_id']]
+        if node:
+            d['node_name'] = node.short_name
+        else:
+            d['node_name'] = node_id_to_hex(node_id)
+
+    df = DataFrame(data)
+    print(df, flush=True)
+    fig = px.line(df, x="time", y="snr", color="node_name", markers=True)
+    html = fig.to_html(full_html=True, include_plotlyjs='cdn')
+    return web.Response(
+        text=html,
+        content_type="text/html",
     )
 
 

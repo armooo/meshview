@@ -10,3 +10,4 @@ aiohttp-sse
 asyncpg
 seaborn
 pydot
+plotly
