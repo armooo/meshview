@@ -679,7 +679,8 @@ async def graph_network(request):
     root = request.query.get("root")
     depth = int(request.query.get("depth", 5))
     hours = int(request.query.get("hours", 24))
-    since = datetime.timedelta(hours=hours)
+    minutes = int(request.query.get("minutes", 0))
+    since = datetime.timedelta(hours=hours, minutes=minutes)
 
     nodes = {}
     node_ids = set()
