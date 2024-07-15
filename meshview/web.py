@@ -666,6 +666,7 @@ async def graph_traceroute(request):
             shape='box',
             color=node_color.get(node_id, 'black'),
             style=style,
+            href=f"/packet_list/{node_id}",
         ))
 
     for path in paths:
