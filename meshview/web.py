@@ -431,6 +431,10 @@ async def chat(request):
 @routes.get("/packet/{packet_id}")
 async def packet(request):
     packet = await store.get_packet(int(request.match_info["packet_id"]))
+    if not packet:
+        return web.Response(
+            status=404,
+        )
     template = env.get_template("packet_index.html")
     return web.Response(
         text=template.render(packet=Packet.from_model(packet)),
