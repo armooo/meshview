@@ -519,7 +519,7 @@ async def graph_neighbors(request):
         else:
             data_by_short_name[node_id_to_hex(node_id)] = data
 
-    fig, ax1 = plt.subplots(figsize=(10, 10))
+    fig, ax1 = plt.subplots(figsize=(5, 5))
     ax1.set_xlabel('time')
     ax1.set_ylabel('SNR')
     df = DataFrame(data_by_short_name, index=dates)
