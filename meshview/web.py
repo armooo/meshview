@@ -448,9 +448,7 @@ async def graph_power(request):
             continue
         if not payload.HasField('device_metrics'):
             continue
-        timestamp = datetime.datetime.fromtimestamp(payload.time)
-        if timestamp.year < 2000:
-            continue
+        timestamp = p.import_time
         date.append(timestamp)
         battery.append(payload.device_metrics.battery_level)
         voltage.append(payload.device_metrics.voltage)
