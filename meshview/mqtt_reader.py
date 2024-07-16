@@ -26,11 +26,11 @@ def decrypt(packet):
         pass
 
 
-async def get_topic_envelopes(topics):
+async def get_topic_envelopes(mqtt_server, topics):
     while True:
         try:
             async with aiomqtt.Client(
-                "mqtt.meshtastic.org", username="meshdev", password="large4cats"
+                mqtt_server, username="meshdev", password="large4cats"
             ) as client:
                 for topic in topics:
                     await client.subscribe(topic)
