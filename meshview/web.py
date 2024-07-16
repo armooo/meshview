@@ -85,7 +85,7 @@ def node_id_to_hex(node_id):
 def format_timestamp(timestamp):
     if isinstance(timestamp, int):
         timestamp = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc)
-    return timestamp.isoformat(timespec="seconds")
+    return timestamp.isoformat(timespec="milliseconds")
 
 
 env.filters["node_id_to_hex"] = node_id_to_hex
