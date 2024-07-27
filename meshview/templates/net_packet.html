@@ -1,0 +1,12 @@
+<div class="card mt-2">
+    <div class="card-header">
+        <span class="fw-bold">{{packet.from_node.long_name}}</span>
+        <a href="/packet_details/{{packet.id}}" hx-trigger="click" hx-target="#packet_details" hx-get="/packet_details/{{packet.id}}" hx-swap="innerHTML scroll:top">🔎</a>
+    </div>
+    <div class="card-text text-start">
+        <dl>
+            <div>{{packet.import_time | format_timestamp}}</div>
+            <div>{{packet.payload}}</div>
+        </dl>
+    </div>
+</div>

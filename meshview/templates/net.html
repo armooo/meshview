@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block head %}
+     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% endblock %}
+
+{% block css %}
+    #packet_details{
+        height: 95vh;
+        overflow: scroll;
+    }
+{% endblock %}
+
+{% block body %}
+<div
+        id="net"
+        class="container text-center"
+        hx-ext="sse"
+        sse-connect="/events?portnum=1"
+    >
+    <div class="row">
+        <div class="col-6" id="packet_list" sse-swap="net_packet" hx-swap="afterbegin">
+            {% for packet in net_packets %}
+            {% include 'net_packet.html' %}
+            {% endfor %}
+        </div>
+        <div class="col-6 sticky-top" id="packet_details">
+        </div>
+    </div>
+</div>
+{% endblock body %}

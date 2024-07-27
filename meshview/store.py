@@ -153,7 +153,7 @@ async def get_fuzzy_nodes(query):
         return result.scalars()
 
 
-async def get_packets(node_id=None, portnum=None, since=None, limit=500):
+async def get_packets(node_id=None, portnum=None, since=None, limit=500, before=None, after=None):
     async with database.async_session() as session:
         q = select(Packet)
 
@@ -165,6 +165,10 @@ async def get_packets(node_id=None, portnum=None, since=None, limit=500):
             q = q.where(Packet.portnum == portnum)
         if since:
             q = q.where(Packet.import_time > (datetime.datetime.utcnow() - since))
+        if before:
+            q = q.where(Packet.import_time < before)
+        if after:
+            q = q.where(Packet.import_time > after)
         if limit is not None:
             q = q.limit(limit)
 

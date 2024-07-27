@@ -1,6 +1,5 @@
 import asyncio
 import io
-
 from collections import Counter
 from dataclasses import dataclass
 import datetime
@@ -342,6 +341,7 @@ async def events(request):
         portnum = int(portnum)
 
     packet_template = env.get_template("packet.html")
+    net_packet_template = env.get_template("net_packet.html")
     with notify.subscribe(node_id) as event:
         async with sse_response(request) as resp:
             while resp.is_connected():
@@ -364,14 +364,21 @@ async def events(request):
                     event.clear()
                     try:
                         for packet in packets:
+                            ui_packet = Packet.from_model(packet)
                             await resp.send(
                                 packet_template.render(
                                     is_hx_request="HX-Request" in request.headers,
                                     node_id=node_id,
-                                    packet=Packet.from_model(packet),
+                                    packet=ui_packet,
                                 ),
                                 event="packet",
                             )
+                            if ui_packet.portnum == PortNum.TEXT_MESSAGE_APP and '#baymeshnet' in ui_packet.payload.lower():
+                                await resp.send(
+                                    net_packet_template.render(packet=ui_packet),
+                                    event="net_packet",
+                                )
+
                         for packet in uplinked:
                             await resp.send(
                                 packet_template.render(
@@ -842,6 +849,34 @@ async def graph_network(request):
     return web.Response(
         body=graph.create_svg(),
         content_type="image/svg+xml",
+    )
+
+
+@routes.get("/net")
+async def graph_net(request):
+    if "date" in request.query:
+        start_date = datetime.date.fromisoformat(request.query["date"])
+    else:
+        start_date = datetime.date.today()
+        while start_date.weekday() != 2:
+            start_date = start_date - datetime.timedelta(days=1)
+
+    start_time = datetime.datetime.combine(start_date, datetime.time(0,0))
+
+    text_packets = [
+        Packet.from_model(p)
+        for p in await store.get_packets(
+            portnum=PortNum.TEXT_MESSAGE_APP,
+            after=start_time,
+            before=start_time + datetime.timedelta(hours=1),
+        )
+    ]
+    net_packets = [p for p in text_packets if '#baymeshnet' in p.payload.lower()]
+
+    template = env.get_template("net.html")
+    return web.Response(
+        text=template.render(net_packets=net_packets),
+        content_type="text/html",
     )
 
 
