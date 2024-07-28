@@ -79,17 +79,20 @@
 <script>
     var trace = {{trace | tojson}};
     var map = L.map('map').setView(trace[0], 13);
+    var markers = L.featureGroup();
+    markers.addTo(map);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
     L.polyline(trace).addTo(map);
-    L.marker(trace[0]).addTo(map);
+    L.marker(trace[0]).addTo(markers);
     {% for n in neighbors %}
     var m = L.circleMarker({{n.location | tojson}});
     m.bindPopup('SNR: {{n.snr}}<br/><a href="/packet_list/{{n.node_id}}">[{{n.short_name}}] {{n.long_name}} {{n.node_id | node_id_to_hex}}</a>');
-    m.addTo(map);
+    m.addTo(markers);
     L.polyline([trace[0], {{n.location | tojson}}], {color: 'red'}).addTo(map);
+    map.fitBounds(markers.getBounds().pad(.7));
     {% endfor %}
 </script>
 {% endif %}
