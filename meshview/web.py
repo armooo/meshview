@@ -394,11 +394,32 @@ async def events(request):
 
 @routes.get("/packet_details/{packet_id}")
 async def packet_details(request):
-    packets_seen = await store.get_packets_seen(int(request.match_info["packet_id"]))
+    packet_id = int(request.match_info["packet_id"])
+    packets_seen = list(await store.get_packets_seen(packet_id))
+    packet = await store.get_packet(packet_id)
+
+    from_node_cord = None
+    if packet.from_node.last_lat:
+        from_node_cord = [packet.from_node.last_lat * 1e-7 , packet.from_node.last_long * 1e-7]
+
+    uplinked_cord = []
+    for p in packets_seen:
+        if p.node.last_lat:
+            uplinked_cord.append([p.node.last_lat * 1e-7 , p.node.last_long * 1e-7])
+
+    map_center = None
+    if from_node_cord:
+        map_center = from_node_cord
+    elif uplinked_cord:
+        map_center = uplinked_cord[0]
+
     template = env.get_template("packet_details.html")
     return web.Response(
         text=template.render(
-            is_hx_request="HX-Request" in request.headers, packets_seen=packets_seen
+            packets_seen=packets_seen,
+            map_center=map_center,
+            from_node_cord=from_node_cord,
+            uplinked_cord=uplinked_cord,
         ),
         content_type="text/html",
     )
