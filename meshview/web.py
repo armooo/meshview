@@ -6,6 +6,7 @@ import datetime
 from aiohttp_sse import sse_response
 import ssl
 import re
+import os
 
 import pydot
 from pandas import DataFrame
@@ -24,6 +25,11 @@ from meshview import store
 from meshview import models
 from meshview import decode_payload
 from meshview import notify
+
+
+with open(os.path.join(os.path.dirname(__file__), '1x1.png'), 'rb') as png:
+    empty_png = png.read()
+
 
 env = Environment(loader=PackageLoader("meshview"), autoescape=select_autoescape())
 
@@ -399,7 +405,7 @@ async def packet_details(request):
     packet = await store.get_packet(packet_id)
 
     from_node_cord = None
-    if packet.from_node.last_lat:
+    if packet.from_node and packet.from_node.last_lat:
         from_node_cord = [packet.from_node.last_lat * 1e-7 , packet.from_node.last_long * 1e-7]
 
     uplinked_cord = []
@@ -470,44 +476,60 @@ async def packet(request):
     )
 
 
-@routes.get("/graph/power/{node_id}")
-async def graph_power(request):
-    date = []
-    battery = []
-    voltage = []
-    for p in await store.get_packets_from(int(request.match_info['node_id']), PortNum.TELEMETRY_APP):
+async def graph_telemetry(node_id, payload_type, graph_config):
+    data = {'date': []}
+    fields = []
+    for c in graph_config:
+        fields.extend(c['fields'])
+
+    for field in fields:
+        data[field] = []
+
+    for p in await store.get_packets_from(node_id, PortNum.TELEMETRY_APP):
         _, payload = decode_payload.decode(p)
         if not payload:
             continue
-        if not payload.HasField('device_metrics'):
+        if not payload.HasField(payload_type):
             continue
+        data_field = getattr(payload, payload_type)
         timestamp = p.import_time
-        date.append(timestamp)
-        battery.append(payload.device_metrics.battery_level)
-        voltage.append(payload.device_metrics.voltage)
+        data['date'].append(timestamp)
+        for field in fields:
+            data[field].append(getattr(data_field, field))
 
-
-    if not date:
+    if not data['date']:
         return web.Response(
+            body=empty_png,
             status=404,
             content_type="image/png",
         )
 
-
     max_time = datetime.timedelta(days=4)
-    newest = date[0]
-    for i, d in enumerate(date):
+    newest = data['date'][0]
+    for i, d in enumerate(data['date']):
         if d < newest - max_time:
             break
 
-    fig, ax1 = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(10, 10))
     fig.autofmt_xdate()
-    ax1.set_xlabel('time')
-    ax1.set_ylabel('battery level', color='tab:blue')
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('voltage', color='tab:red')
-    sns.lineplot(x=date[:i], y=battery[:i], ax=ax1, color='tab:blue')
-    sns.lineplot(x=date[:i], y=voltage[:i], ax=ax2, color='tab:red')
+    ax.set_xlabel('time')
+    axes = {0: ax}
+
+    date = data.pop('date')
+    df = DataFrame(data, index=date)
+
+    for i, ax_config in enumerate(graph_config):
+        args = {}
+        if 'color' in ax_config:
+            args['color'] =  'tab:' + ax_config['color']
+        if i:
+            ax = ax.twinx()
+        ax.set_ylabel(ax_config['label'], **args)
+        ax_df = df[ax_config['fields']]
+        args = {}
+        if 'palette' in ax_config:
+            args['palette'] = ax_config['palette']
+        sns.lineplot(data=ax_df, ax=ax, **args)
 
     png = io.BytesIO()
     plt.savefig(png, dpi=100)
@@ -516,6 +538,115 @@ async def graph_power(request):
     return web.Response(
         body=png.getvalue(),
         content_type="image/png",
+    )
+
+
+@routes.get("/graph/power/{node_id}")
+async def graph_power(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'device_metrics',
+        [
+            {
+                'label': 'battery level',
+                'fields': ['battery_level'],
+            },
+            {
+                'label': 'voltage',
+                'fields': ['voltage'],
+                'palette': 'Set2',
+            },
+        ],
+    )
+
+
+@routes.get("/graph/chutil/{node_id}")
+async def graph_chutil(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'device_metrics',
+        [
+            {
+                'label': 'utilization',
+                'fields': ['channel_utilization', 'air_util_tx'],
+            },
+        ],
+    )
+
+
+
+
+@routes.get("/graph/wind_speed/{node_id}")
+async def graph_wind_speed(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'environment_metrics',
+        [
+            {
+                'label': 'wind speed m/s',
+                'fields': ['wind_speed'],
+            },
+        ],
+    )
+
+
+@routes.get("/graph/wind_direction/{node_id}")
+async def graph_wind_direction(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'environment_metrics',
+        [
+            {
+                'label': 'wind direction',
+                'fields': ['wind_direction'],
+            },
+        ],
+    )
+
+@routes.get("/graph/temperature/{node_id}")
+async def graph_temperature(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'environment_metrics',
+        [
+            {
+                'label': 'temperature C',
+                'fields': ['temperature'],
+            },
+        ],
+    )
+
+
+@routes.get("/graph/humidity/{node_id}")
+async def graph_humidity(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'environment_metrics',
+        [
+            {
+                'label': 'humidity',
+                'fields': ['relative_humidity'],
+            },
+        ],
+    )
+
+
+@routes.get("/graph/power_metrics/{node_id}")
+async def graph_power_metrics(request):
+    return await graph_telemetry(
+        int(request.match_info['node_id']),
+        'power_metrics',
+        [
+            {
+                'label': 'voltage',
+                'fields': ['ch1_voltage', 'ch2_voltage', 'ch3_voltage'],
+            },
+            {
+                'label': 'current',
+                'fields': ['ch1_current', 'ch2_current', 'ch3_current'],
+                'palette': 'Set2',
+            },
+        ],
     )
 
 
@@ -601,7 +732,6 @@ async def graph_neighbors2(request):
             d['node_name'] = node_id_to_hex(node_id)
 
     df = DataFrame(data)
-    print(df, flush=True)
     fig = px.line(df, x="time", y="snr", color="node_name", markers=True)
     html = fig.to_html(full_html=True, include_plotlyjs='cdn')
     return web.Response(
@@ -874,7 +1004,7 @@ async def graph_network(request):
 
 
 @routes.get("/net")
-async def graph_net(request):
+async def net(request):
     if "date" in request.query:
         start_date = datetime.date.fromisoformat(request.query["date"])
     else:

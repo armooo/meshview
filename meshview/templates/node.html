@@ -28,7 +28,7 @@
         >
         <div class="row">
             <div class="col-md mb-3">
-                <div class="card text-white bg-primary" id="node_info">
+                <div class="card" id="node_info">
                     {% if node %}
                     <div class="card-header">
                         {{node.long_name}} ({{node.node_id|node_id_to_hex}})
@@ -42,12 +42,7 @@
                             <dt>role</dt>
                             <dd>{{node.role}}</dd>
                         </dl>
-                        {% if has_telemetry %}
-                        <a href="/graph/power/{{node_id}}"><img src="/graph/power/{{node_id}}" height="200em" width="200em"/></a>
-                        {% endif %}
-                        {% if neighbors %}
-                        <a href="/graph/neighbors2/{{node_id}}"><img src="/graph/neighbors/{{node_id}}" height="200em" width="200em"/></a>
-                        {% endif %}
+                        {% include "node_graphs.html" %}
                     </div>
                     {% else %}
                     <div class="card-body">

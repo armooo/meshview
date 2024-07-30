@@ -1,0 +1,39 @@
+{% macro graph(name) %}
+<a href="/graph/{{name}}/{{node_id}}"><img src="/graph/{{name}}/{{node_id}}" height="200em" width="200em"/></a>
+{% endmacro %}
+
+
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+         <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">Overview</button>
+    </li>
+    <li>
+         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#neighbors" type="button" role="tab" >Neighbors</button>
+    </li>
+    <li>
+         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#weather" type="button" role="tab" >Weather</button>
+    </li>
+    <li>
+         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#power" type="button" role="tab" >Power</button>
+    </li>
+</ul>
+
+<div class="tab-content">
+      <div class="tab-pane fade show active" id="overview" role="tabpanel">
+        {{ graph("power") }}
+        {{ graph("chutil") }}
+      </div>
+      <div class="tab-pane fade" id="neighbors" role="tabpanel">
+        <a href="/graph/neighbors2/{{node_id}}"><img src="/graph/neighbors/{{node_id}}" height="200em" width="200em"/></a>
+      </div>
+      <div class="tab-pane fade" id="weather" role="tabpanel">
+          {{ graph("temperature") }}
+          {{ graph("humidity") }}
+          {{ graph("wind_speed") }}
+          {{ graph("wind_direction") }}
+      </div>
+      <div class="tab-pane fade" id="power" role="tabpanel">
+          {{ graph("power_metrics") }}
+      </div>
+</div>
+
