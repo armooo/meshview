@@ -33,6 +33,7 @@ def decode_payload(portnum, payload):
     try:
         payload = DECODE_MAP[portnum](payload)
     except (DecodeError, UnicodeDecodeError):
+        print(payload, flush=True)
         return None
     return payload
 
