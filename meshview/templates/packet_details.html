@@ -51,10 +51,10 @@
         iconSize: [32, 32],
     });
     {% for u in uplinked_nodes %}
-    var m = L.marker([{{u.lat}}, {{u.long}}], {icon: radioTower});
-    m.bindPopup('[{{u.short_name}}] {{u.long_name}}<br/>Hops: {{u.hops}}<br/>SNR: {{u.snr}}<br/>RSSI: {{u.rssi}}');
-    m.addTo(markers);
-    details_map.fitBounds(markers.getBounds().pad(.7));
+    L.marker([{{u.lat}}, {{u.long}}], {icon: radioTower})
+        .bindPopup('[{{u.short_name}}] {{u.long_name}}<br/>Hops: {{u.hops}}<br/>SNR: {{u.snr}}<br/>RSSI: {{u.rssi}}')
+        .addTo(markers);
+    details_map.fitBounds(markers.getBounds().pad(.03), {animate: false});
     {% endfor %}
 </script>
 {% endif %}
