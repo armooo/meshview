@@ -397,6 +397,16 @@ async def events(request):
                     except ConnectionResetError:
                         return
 
+@dataclass
+class UplinkedNode:
+    lat: float
+    long: float
+    long_name: str
+    short_name: str
+    hops: int
+    snr: float
+    rssi: float
+
 
 @routes.get("/packet_details/{packet_id}")
 async def packet_details(request):
@@ -408,16 +418,30 @@ async def packet_details(request):
     if packet.from_node and packet.from_node.last_lat:
         from_node_cord = [packet.from_node.last_lat * 1e-7 , packet.from_node.last_long * 1e-7]
 
-    uplinked_cord = []
+    uplinked_nodes = []
     for p in packets_seen:
         if p.node.last_lat:
-            uplinked_cord.append([p.node.last_lat * 1e-7 , p.node.last_long * 1e-7])
+            if p.topic.startswith('mqtt-meshtastic-org'):
+                hops = 666
+            else:
+                hops = p.hop_start - p.hop_limit
+            uplinked_nodes.append(
+                UplinkedNode(
+                    lat=p.node.last_lat * 1e-7,
+                    long=p.node.last_long * 1e-7,
+                    long_name=p.node.long_name,
+                    short_name=p.node.short_name,
+                    hops=hops,
+                    snr=p.rx_snr,
+                    rssi=p.rx_rssi,
+                )
+            )
 
     map_center = None
     if from_node_cord:
         map_center = from_node_cord
-    elif uplinked_cord:
-        map_center = uplinked_cord[0]
+    elif uplinked_nodes:
+        map_center = [uplinked_nodes[0].lat, uplinked_nodes[0].long]
 
     template = env.get_template("packet_details.html")
     return web.Response(
@@ -425,7 +449,7 @@ async def packet_details(request):
             packets_seen=packets_seen,
             map_center=map_center,
             from_node_cord=from_node_cord,
-            uplinked_cord=uplinked_cord,
+            uplinked_nodes=uplinked_nodes,
         ),
         content_type="text/html",
     )
