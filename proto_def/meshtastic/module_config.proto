@@ -153,6 +153,7 @@ message ModuleConfig {
      * Works as a sort of status heartbeat for peace of mind
      */
     uint32 state_broadcast_secs = 3;
+
     /*
      * Send ASCII bell with alert message
      * Useful for triggering ext. notification on bell
@@ -304,6 +305,8 @@ message ModuleConfig {
       NMEA = 4;
       // NMEA messages specifically tailored for CalTopo
       CALTOPO = 5;
+      // Ecowitt WS85 weather station
+      WS85 = 6;
     }
 
     /*
@@ -468,6 +471,11 @@ message ModuleConfig {
      * TODO: REPLACE
      */
     uint32 history_return_window = 5;
+
+    /*
+     * Set to true to let this node act as a server that stores received messages and resends them upon request.
+     */
+    bool is_server = 6;
   }
 
   /*
@@ -651,7 +659,7 @@ message ModuleConfig {
 
     /*
      * Input event origin accepted by the canned message module.
-     * Can be e.g. "rotEnc1", "upDownEnc1" or keyword "_any"
+     * Can be e.g. "rotEnc1", "upDownEnc1", "scanAndSelect", "cardkb", "serialkb", or keyword "_any"
      */
     string allow_input_source = 10;
 

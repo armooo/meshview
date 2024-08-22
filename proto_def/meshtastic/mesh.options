@@ -3,11 +3,17 @@
 
 *macaddr max_size:6 fixed_length:true # macaddrs
 *id max_size:16 # node id strings
+*public_key max_size:32 # public key
 
 *User.long_name max_size:40
 *User.short_name max_size:5
 
 *RouteDiscovery.route max_count:8
+*RouteDiscovery.snr_towards max_count:8
+*RouteDiscovery.snr_towards int_size:8
+*RouteDiscovery.route_back max_count:8
+*RouteDiscovery.snr_back max_count:8
+*RouteDiscovery.snr_back int_size:8
 
 # note: this payload length is ONLY the bytes that are sent inside of the Data protobuf (excluding protobuf overhead). The 16 byte header is
 # outside of this envelope
@@ -40,10 +46,12 @@
 
 *Routing.variant anonymous_oneof:true
 
-*LogRecord.message max_size:64
-*LogRecord.source max_size:8
+*LogRecord.message max_size:384
+*LogRecord.source max_size:32
 
 *FileInfo.file_name max_size:228
+
+*ClientNotification.message max_size:400
 
 # MyMessage.name         max_size:40 
 # or fixed_length or fixed_count, or max_count
