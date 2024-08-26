@@ -420,7 +420,7 @@ async def packet_details(request):
 
     uplinked_nodes = []
     for p in packets_seen:
-        if p.node.last_lat:
+        if p.node and p.node.last_lat:
             if p.topic.startswith('mqtt-meshtastic-org'):
                 hops = 666
             else:
