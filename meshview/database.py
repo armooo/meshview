@@ -7,7 +7,11 @@ from meshview import models
 
 def init_database(database_connetion_string):
     global engine, async_session
-    engine = create_async_engine(database_connetion_string, echo=False, pool_size=20, max_overflow=50)
+    kwargs = {}
+    if not database_connetion_string.startswith('sqlite'):
+        kwargs['pool_size'] = 20
+        kwargs['max_overflow'] = 50
+    engine = create_async_engine(database_connetion_string, echo=False, **kwargs)
     async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
