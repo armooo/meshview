@@ -1,5 +1,6 @@
 import base64
 import asyncio
+import random
 
 import aiomqtt
 from google.protobuf.message import DecodeError
@@ -27,10 +28,11 @@ def decrypt(packet):
 
 
 async def get_topic_envelopes(mqtt_server, topics):
+    identifier = str(random.getrandbits(16))
     while True:
         try:
             async with aiomqtt.Client(
-                mqtt_server, username="meshdev", password="large4cats"
+                mqtt_server, username="meshdev", password="large4cats" , identifier=identifier,
             ) as client:
                 for topic in topics:
                     await client.subscribe(topic)
