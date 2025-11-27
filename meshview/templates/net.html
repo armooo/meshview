@@ -1,27 +1,75 @@
 {% extends "base.html" %}
 
 {% block css %}
-    #packet_details{
-        height: 95vh;
-        overflow: scroll;
-    }
+.timestamp {
+    min-width:10em;
+}
+.chat-packet:nth-of-type(odd){
+    background-color: #3a3a3a; /* Lighter than #2a2a2a */
+}
+.chat-packet {
+    border-bottom: 1px solid #555;
+    padding: 8px;
+    border-radius: 8px; /* Adjust the value to make the corners more or less rounded */
+}
+.chat-packet:nth-of-type(even){
+    background-color: #333333; /* Slightly lighter than the previous #181818 */
+}
 {% endblock %}
 
 {% block body %}
-<div
-        id="net"
-        class="container text-center"
-        hx-ext="sse"
-        sse-connect="/events?portnum=1"
-    >
-    <div class="row">
-        <div class="col-6" id="packet_list" sse-swap="net_packet" hx-swap="afterbegin">
-            {% for packet in net_packets %}
-            {% include 'net_packet.html' %}
-            {% endfor %}
-        </div>
-        <div class="col-6 sticky-top" id="packet_details">
-        </div>
-    </div>
+<div class="container">
+    <span>{{ site_config["site"]["weekly_net_message"] }}</span> <br><br>
+
+    <h5>
+        <span data-translate-lang="number_of_checkins">Number of Check-ins:</span> {{ packets|length }}
+    </h5>
 </div>
-{% endblock body %}
+
+<div class="container">
+  {% for packet in packets %}
+  <div
+      class="row chat-packet"
+      data-packet-id="{{ packet.id }}"
+      role="article"
+      aria-label="Chat message from {{ packet.from_node.long_name or (packet.from_node_id | node_id_to_hex) }}"
+  >
+      <span class="col-2 timestamp">
+          {{ packet.import_time.strftime('%-I:%M:%S %p - %m-%d-%Y') }}
+      </span>
+      <span class="col-1 timestamp">
+          <a href="/packet/{{ packet.id }}" title="View packet details">✉️</a> {{ packet.from_node.channel }}
+      </span>
+      <span class="col-2 username">
+          <a href="/packet_list/{{ packet.from_node_id }}" title="View all packets from this node">
+              {{ packet.from_node.long_name or (packet.from_node_id | node_id_to_hex) }}
+          </a>
+      </span>
+      <span class="col-5 message">
+          {{ packet.payload }}
+      </span>
+  </div>
+  {% else %}
+  <span data-translate-lang="no_packets_found">No packets found.</span>
+  {% endfor %}
+</div>
+
+<script>
+async function loadTranslations() {
+    try {
+        const langCode = "{{ site_config.get('site', {}).get('language','en') }}";
+        const res = await fetch(`/api/lang?lang=${langCode}&section=net`);
+        const translations = await res.json();
+        document.querySelectorAll("[data-translate-lang]").forEach(el => {
+            const key = el.dataset.translateLang;
+            if(el.placeholder !== undefined && el.placeholder !== "") el.placeholder = translations[key] || el.placeholder;
+            else el.textContent = translations[key] || el.textContent;
+        });
+    } catch(err) {
+        console.error("Net translations load failed:", err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadTranslations());
+</script>
+{% endblock %}

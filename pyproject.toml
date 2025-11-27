@@ -1,0 +1,13 @@
+[tool.ruff]
+# Linting
+target-version = "py313"
+line-length = 100
+extend-exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]     # pick your rulesets
+ignore = ["E501"]                       # example; let formatter handle line length
+
+[tool.ruff.format]
+quote-style = "preserve"
+indent-style = "space"

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>API Documentation - Packet Stats</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+  <style>
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: #000000;
+    }
+    #swagger-ui {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    /* Override Swagger UI colors for white background */
+    .swagger-ui {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+    }
+
+    .swagger-ui .topbar,
+    .swagger-ui .info,
+    .swagger-ui .opblock-summary-description,
+    .swagger-ui .parameters-col_description,
+    .swagger-ui .response-col_description {
+      color: #000000 !important;
+    }
+
+    .swagger-ui .opblock {
+      background-color: #f9f9f9 !important;
+      border-color: #ddd !important;
+    }
+
+    .swagger-ui .opblock-summary {
+      background-color: #eaeaea !important;
+      color: #000 !important;
+    }
+
+    .swagger-ui .opblock-section-header {
+      color: #000 !important;
+    }
+
+    .swagger-ui .parameters,
+    .swagger-ui .response {
+      background-color: #fafafa !important;
+      color: #000 !important;
+    }
+
+    .swagger-ui table {
+      color: #000 !important;
+    }
+
+    .swagger-ui a {
+      color: #1a0dab !important; /* classic link blue */
+    }
+
+    .swagger-ui input,
+    .swagger-ui select,
+    .swagger-ui textarea {
+      background-color: #fff !important;
+      color: #000 !important;
+      border: 1px solid #ccc !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+
+  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+  <script>
+    const spec = {
+      openapi: "3.0.0",
+      info: {
+        title: "Packet Statistics API",
+        version: "1.0.0",
+        description: "API for retrieving packet statistics over a given period with optional filters."
+      },
+      paths: {
+        "/api/stats": {
+          get: {
+            summary: "Get packet statistics",
+            description: "Returns packet statistics for a given period type and length, with optional filters.",
+            parameters: [
+              {
+                name: "period_type",
+                in: "query",
+                required: false,
+                description: "Type of period to group by (`hour` or `day`). Default is `hour`.",
+                schema: {
+                  type: "string",
+                  enum: ["hour", "day"]
+                }
+              },
+              {
+                name: "length",
+                in: "query",
+                required: false,
+                description: "Number of periods to include. Default is 24.",
+                schema: {
+                  type: "integer",
+                  default: 24
+                }
+              },
+              {
+                name: "channel",
+                in: "query",
+                required: false,
+                description: "Filter by channel name.",
+                schema: {
+                  type: "string"
+                }
+              },
+              {
+                name: "portnum",
+                in: "query",
+                required: false,
+                description: "Filter by port number.",
+                schema: {
+                  type: "integer"
+                }
+              },
+              {
+                name: "to_node",
+                in: "query",
+                required: false,
+                description: "Filter by destination node ID.",
+                schema: {
+                  type: "integer"
+                }
+              },
+              {
+                name: "from_node",
+                in: "query",
+                required: false,
+                description: "Filter by source node ID.",
+                schema: {
+                  type: "integer"
+                }
+              }
+            ],
+            responses: {
+              "200": {
+                description: "Successful response",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        hourly: {
+                          type: "object",
+                          properties: {
+                            period_type: { type: "string" },
+                            length: { type: "integer" },
+                            filters: { type: "object" },
+                            data: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: {
+                                  period: { type: "string", example: "2025-08-06 19:00" },
+                                  node_id: { type: "integer" },
+                                  long_name: { type: "string" },
+                                  short_name: { type: "string" },
+                                  packets: { type: "integer" }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "400": {
+                description: "Invalid request parameters",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        error: { type: "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+
+    window.onload = () => {
+      SwaggerUIBundle({
+        spec,
+        dom_id: '#swagger-ui',
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>

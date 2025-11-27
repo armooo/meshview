@@ -1,39 +1,101 @@
 {% extends "base.html" %}
 
+{% block css %}
+    .container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    #pause-button {
+        white-space: nowrap;
+        padding: 2px 8px;
+        font-size: 0.85rem;
+    }
+{% endblock %}
+
 {% block body %}
-<div class="container" hx-ext="sse" sse-connect="/events{% if portnum %}?portnum={{portnum}}{% endif%}">
-    <form class="row">
+<div class="container">
+    <form class="d-flex align-items-center justify-content-between mb-2">
         {% set options = {
                 1: "Text Message",
                 3: "Position",
                 4: "Node Info",
                 67: "Telemetry",
                 71: "Neighbor Info",
+                70: "Trace Route",
             }
         %}
-        <select name="portnum" class="col-2 m-2">
-            <option
-                value = ""
-                {% if portnum not in options %}selected{% endif %}
-            >All</option>
-            {% for value, name in options.items() %}
-            <option
-                value="{{value}}"
-                {% if value == portnum %}selected{% endif %}
-            >{{ name }}</option>
-            {% endfor %}
-        </select>
-        <input type="submit" class="col-2 m-2"/>
+        <button type="button" id="pause-button" class="btn btn-sm btn-outline-secondary">Pause</button>
     </form>
+
     <div class="row">
-        <div class="col-6" id="packet_list" sse-swap="packet" hx-swap="afterbegin">
+        <div class="col-xs" id="packet_list">
             {% for packet in packets %}
-            {% include 'packet.html' %}
+                {% include 'packet.html' %}
             {% else %}
-            No packets found.
+                No packets found.
             {% endfor %}
         </div>
-        <div class="col-6 sticky-top" id="packet_details" style="height: 95vh; overflow: scroll">
     </div>
 </div>
+
+<script>
+let lastTime = null;
+let portnum = "{{ portnum if portnum is not none else '' }}";
+let updatesPaused = false;
+
+// Use firehose_interval from config (seconds), default to 3s if not set
+const firehoseInterval = {{ site_config["site"]["firehose_interval"] | default(3) }};
+if (firehoseInterval < 0) firehoseInterval = 0;
+
+function fetchUpdates() {
+    if (updatesPaused || firehoseInterval === 0) return;
+
+    const url = new URL("/firehose/updates", window.location.origin);
+    if (lastTime) url.searchParams.set("last_time", lastTime);
+    if (portnum) url.searchParams.set("portnum", portnum);
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (data.packets && data.packets.length > 0) {
+                lastTime = data.last_time;
+                const list = document.getElementById("packet_list");
+
+                for (const html of data.packets.reverse()) {
+                    list.insertAdjacentHTML("afterbegin", html);
+                }
+            }
+        })
+        .catch(err => {
+            console.error("Update fetch failed:", err);
+        });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const pauseBtn = document.getElementById("pause-button");
+
+    const portnumSelector = document.querySelector('select[name="portnum"]');
+    if (portnumSelector) {
+        portnumSelector.addEventListener("change", (e) => {
+            const selected = e.target.value;
+            const url = new URL(window.location.href);
+            url.searchParams.set("portnum", selected);
+            window.location.href = url;
+        });
+    }
+
+    pauseBtn.addEventListener("click", () => {
+        updatesPaused = !updatesPaused;
+        pauseBtn.textContent = updatesPaused ? "Resume" : "Pause";
+    });
+
+    // Start fetching updates with configurable interval
+    fetchUpdates();
+    if (firehoseInterval > 0) {
+        setInterval(fetchUpdates, firehoseInterval * 1000);
+    }
+});
+</script>
+
 {% endblock %}

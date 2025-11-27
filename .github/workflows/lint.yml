@@ -1,0 +1,39 @@
+name: Ruff
+
+on:
+  pull_request:
+    paths:
+      - "**/*.py"
+      - "pyproject.toml"
+      - "ruff.toml"
+      - ".pre-commit-config.yaml"
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Cache Ruff
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ruff
+          key: ruff-${{ runner.os }}-${{ hashFiles('**/pyproject.toml', '**/ruff.toml') }}
+
+      - name: Install Ruff
+        run: pip install "ruff==0.13.3"
+
+      # Lint (with GitHub annotation format for inline PR messages)
+      - name: Ruff check
+        run: ruff check --output-format=github .
+
+      # Fail PR if formatting is needed
+      - name: Ruff format (check-only)
+        run: ruff format --check .
+
+      # TODO: Investigate only applying to changed files and possibly apply fixes

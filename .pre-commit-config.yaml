@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.3  # pin the latest you’re comfortable with
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]  # fail if it had to change files
+      - id: ruff-format
+      

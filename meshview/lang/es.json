@@ -1,0 +1,112 @@
+{
+  "base": {
+    "conversations": "Conversaciones",
+    "nodes": "Nodos",
+    "everything": "Mostrar Todo",
+    "graph": "Gráficos de la Malla",
+    "net": "Red Semanal",
+    "map": "Mapa en Vivo",
+    "stats": "Estadísticas",
+    "top": "Nodos con Mayor Tráfico",
+    "footer": "Visita <strong><a href=\"https://github.com/pablorevilla-meshtastic/meshview\">Meshview</a></strong> en Github.",
+    "node id": "ID de Nodo",
+    "go to node": "Ir al nodo",
+    "all": "Todos",
+    "portnum_options": {
+      "1": "Mensaje de Texto",
+      "3": "Ubicación",
+      "4": "Información del Nodo",
+      "67": "Telemetría",
+      "70": "Traceroute",
+      "71": "Información de Vecinos"
+    }
+  },
+  "chat": {
+  "replying_to": "Respondiendo a:",
+  "view_packet_details": "Ver detalles del paquete"
+  },
+  "nodelist": {
+    "search_placeholder": "Buscar por nombre o ID...",
+    "all_roles": "Todos los Roles",
+    "all_channels": "Todos los Canales",
+    "all_hw_models": "Todos los Modelos",
+    "all_firmware": "Todo el Firmware",
+    "export_csv": "Exportar CSV",
+    "clear_filters": "Limpiar Filtros",
+    "showing": "Mostrando",
+    "nodes": "nodos",
+    "short": "Corto",
+    "long_name": "Largo",
+    "hw_model": "Modelo",
+    "firmware": "Firmware",
+    "role": "Rol",
+    "last_lat": "Última Latitud",
+    "last_long": "Última Longitud",
+    "channel": "Canal",
+    "last_update": "Última Actualización",
+    "loading_nodes": "Cargando nodos...",
+    "no_nodes": "No se encontraron nodos",
+    "error_nodes": "Error al cargar nodos"
+  },
+  "net": {
+    "number_of_checkins": "Número de registros:",
+    "view_packet_details": "Ver detalles del paquete",
+    "view_all_packets_from_node": "Ver todos los paquetes de este nodo",
+    "no_packets_found": "No se encontraron paquetes."
+  },
+  "map": {
+    "channel": "Canal:",
+    "model": "Modelo:",
+    "role": "Rol:",
+    "last_seen": "Visto por última vez:",
+    "firmware": "Firmware:",
+    "show_routers_only": "Mostrar solo enrutadores",
+    "share_view": "Compartir esta vista"
+  },
+  "stats": {
+    "mesh_stats_summary": "Estadísticas de la Malla - Resumen (completas en la base de datos)",
+    "total_nodes": "Nodos Totales",
+    "total_packets": "Paquetes Totales",
+    "total_packets_seen": "Paquetes Totales Vistos",
+    "packets_per_day_all": "Paquetes por Día - Todos los Puertos (Últimos 14 Días)",
+    "packets_per_day_text": "Paquetes por Día - Mensajes de Texto (Puerto 1, Últimos 14 Días)",
+    "packets_per_hour_all": "Paquetes por Hora - Todos los Puertos",
+    "packets_per_hour_text": "Paquetes por Hora - Mensajes de Texto (Puerto 1)",
+    "packet_types_last_24h": "Tipos de Paquetes - Últimas 24 Horas",
+    "hardware_breakdown": "Distribución de Hardware",
+    "role_breakdown": "Distribución de Roles",
+    "channel_breakdown": "Distribución de Canales",
+    "expand_chart": "Ampliar Gráfico",
+    "export_csv": "Exportar CSV",
+    "all_channels": "Todos los Canales"
+  },
+  "top": {
+    "top_traffic_nodes": "Tráfico (últimas 24 horas)",
+    "chart_description_1": "Este gráfico muestra una curva normal (distribución normal) basada en el valor total de \"Veces Visto\" para todos los nodos. Ayuda a visualizar con qué frecuencia se detectan los nodos en relación con el promedio.",
+    "chart_description_2": "Este valor de \"Veces Visto\" es lo más aproximado que tenemos al nivel de uso de la malla por nodo.",
+    "mean_label": "Media:",
+    "stddev_label": "Desviación Estándar:",
+    "long_name": "Nombre Largo",
+    "short_name": "Nombre Corto",
+    "channel": "Canal",
+    "packets_sent": "Paquetes Enviados",
+    "times_seen": "Veces Visto",
+    "seen_percent": "% Visto respecto a la Media",
+    "no_nodes": "No hay nodos con mayor tráfico disponibles."
+  },
+  "nodegraph":
+  {
+    "channel_label": "Canal:",
+    "search_placeholder": "Buscar nodo...",
+    "search_button": "Buscar",
+    "long_name_label": "Nombre completo:",
+    "short_name_label": "Nombre corto:",
+    "role_label": "Rol:",
+    "hw_model_label": "Modelo de hardware:",
+    "traceroute": "Traceroute",
+    "neighbor": "Vecino",
+    "other": "Otro",
+    "unknown": "Desconocido",
+    "node_not_found": "¡Nodo no encontrado en el canal actual!"
+  }
+}

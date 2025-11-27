@@ -5,7 +5,7 @@
         <span {% if from_me %} class="fw-bold" {% endif %}>
             {{packet.from_node.long_name}}(
             {%- if not from_me -%}
-            <a hx-target="#node" href="/node_search?q={{packet.from_node_id|node_id_to_hex}}">
+            <a href="/node_search?q={{packet.from_node_id|node_id_to_hex}}">
             {%- endif -%}
             {{packet.from_node_id|node_id_to_hex}}
             {%- if not from_me -%}
@@ -13,7 +13,6 @@
             {%- endif -%}
             )
         </span>
-        -&gt;
         <span {% if to_me %} class="fw-bold" {% endif %}>
             {{packet.to_node.long_name}}(
             {%- if not to_me -%}
@@ -29,19 +28,21 @@
     <div class="card-body">
         <div class="card-title">
         {{packet.id}}
-        <a href="/packet_details/{{packet.id}}" hx-target="#packet_details" hx-get="/packet_details/{{packet.id}}" hx-swap="innerHTML scroll:top">🔎</a>
-            <a href="/packet/{{packet.id}}">🔗</a>
+            <a href="/packet/{{packet.id}}">🔎</a>
         </div>
         <div class="card-text text-start">
             <dl>
-                <dt>import_time</dt>
-                <dd>{{packet.import_time | format_timestamp}}</dd>
+                <dt>Import Time</dt>
+                <dd>{{packet.import_time.strftime('%-I:%M:%S %p - %m-%d-%Y')}}</dd>
                 <dt>packet</dt>
                 <dd><pre>{{packet.data}}</pre></dd>
                 <dt>payload</dt>
                 <dd>
                     {% if packet.pretty_payload %}
-                    <div>{{packet.pretty_payload}}<div>
+                    <div>{{packet.pretty_payload}}</div>
+                    {% endif %}
+                    {% if packet.raw_mesh_packet and packet.raw_mesh_packet.decoded and packet.raw_mesh_packet.decoded.reply_id %}
+                     <i>(Replying to: <a href="/packet/{{ packet.raw_mesh_packet.decoded.reply_id }}">{{ packet.raw_mesh_packet.decoded.reply_id }}</a>)</i>
                     {% endif %}
                     {% if  packet.raw_mesh_packet.decoded and packet.raw_mesh_packet.decoded.portnum == 70 %}
                         <ul>

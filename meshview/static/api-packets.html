@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>API Documentation - Packets</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+  <style>
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: #000000;
+    }
+    #swagger-ui {
+      background: #ffffff;
+      color: #000000;
+    }
+
+    /* Override Swagger UI colors for white background */
+    .swagger-ui {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+    }
+
+    .swagger-ui .topbar,
+    .swagger-ui .info,
+    .swagger-ui .opblock-summary-description,
+    .swagger-ui .parameters-col_description,
+    .swagger-ui .response-col_description {
+      color: #000000 !important;
+    }
+
+    .swagger-ui .opblock {
+      background-color: #f9f9f9 !important;
+      border-color: #ddd !important;
+    }
+
+    .swagger-ui .opblock-summary {
+      background-color: #eaeaea !important;
+      color: #000 !important;
+    }
+
+    .swagger-ui .opblock-section-header {
+      color: #000 !important;
+    }
+
+    .swagger-ui .parameters,
+    .swagger-ui .response {
+      background-color: #fafafa !important;
+      color: #000 !important;
+    }
+
+    .swagger-ui table {
+      color: #000 !important;
+    }
+
+    .swagger-ui a {
+      color: #1a0dab !important; /* classic link blue */
+    }
+
+    .swagger-ui input,
+    .swagger-ui select,
+    .swagger-ui textarea {
+      background-color: #fff !important;
+      color: #000 !important;
+      border: 1px solid #ccc !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+
+  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+  <script>
+    const spec = {
+      openapi: "3.0.0",
+      info: {
+        title: "Packets API",
+        version: "1.0.0",
+        description: "API for retrieving packet records with optional filters."
+      },
+      paths: {
+        "/api/packets": {
+          get: {
+            summary: "Get packets",
+            description: "Returns a list of recent packets, optionally filtered by a timestamp and limited by count.",
+            parameters: [
+              {
+                name: "limit",
+                in: "query",
+                required: false,
+                description: "Maximum number of packets to return. Default is 200.",
+                schema: {
+                  type: "integer",
+                  default: 200
+                }
+              },
+              {
+                name: "since",
+                in: "query",
+                required: false,
+                description: "Only return packets imported after this ISO8601 timestamp (e.g., `2025-08-12T14:15:20`).",
+                schema: {
+                  type: "string",
+                  format: "date-time"
+                }
+              }
+            ],
+            responses: {
+              "200": {
+                description: "Successful response",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        packets: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              id: { type: "integer", example: 196988973 },
+                              from_node_id: { type: "integer", example: 2381019191 },
+                              to_node_id: { type: "integer", example: 1234567890 },
+                              portnum: { type: "integer", example: 1 },
+                              import_time: { type: "string", format: "date-time", example: "2025-08-12T14:15:20.503827" },
+                              payload: { type: "string", example: "Hello Mesh" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "500": {
+                description: "Internal server error",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        error: { type: "string", example: "Failed to fetch packets" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+
+    window.onload = () => {
+      SwaggerUIBundle({
+        spec,
+        dom_id: '#swagger-ui',
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>

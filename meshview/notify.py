@@ -1,6 +1,6 @@
+import asyncio
 import contextlib
 from collections import defaultdict
-import asyncio
 
 waiting_node_ids_events = defaultdict(set)
 
@@ -34,7 +34,6 @@ def create_event(node_id):
 
 
 def remove_event(node_event):
-    print("removing event")
     waiting_node_ids_events[node_event.node_id].remove(node_event)
 
 
@@ -52,8 +51,15 @@ def notify_uplinked(node_id, packet):
 
 @contextlib.contextmanager
 def subscribe(node_id):
+    """
+    Context manager for subscribing to events for a node_id.
+    Automatically manages event creation and cleanup.
+    """
     event = create_event(node_id)
     try:
         yield event
+    except Exception as e:
+        print(f"Error during subscription for node_id={node_id}: {e}")
+        raise
     finally:
         remove_event(event)

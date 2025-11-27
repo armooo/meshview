@@ -1,4 +1,4 @@
-<div class="col-6" id="packet_list" sse-swap="{{packet_event | default('packet')}}" hx-swap="afterbegin">
+<div class="col" id="packet_list">
     {% for packet in packets %}
     {% include 'packet.html' %}
     {% else %}

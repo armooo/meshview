@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Mesh Nodes Live Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+body { margin: 0; font-family: monospace; background: #121212; color: #eee; }
+#map { height: 100vh; width: 100%; }
+
+#legend {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: white;       /* changed from rgba(0,0,0,0.8) to white */
+  color: black;            /* text color black */
+  padding: 10px;
+  border-radius: 5px;
+  z-index: 1000;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid #ccc;  /* optional: subtle border for white bg */
+}
+
+#filter-container { margin-bottom: 6px; text-align: left; }
+.filter-checkbox { margin-right: 4px; }
+
+.blinking-tooltip {
+  background: white;
+  color: black;
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="legend">
+  <div id="filter-container"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylinedecorator.js" crossorigin></script>
+
+<script>
+(async function(){
+    // --- Load config ---
+    let config = {};
+    try {
+        const res = await fetch('/api/config');
+        config = await res.json();
+    } catch(err){ console.error('Failed to load config', err); }
+
+    const mapInterval = Number(config.site?.map_interval) || 3;
+    const bayAreaBounds = [
+        [Number(config.site?.map_top_left_lat), Number(config.site?.map_top_left_lon)],
+        [Number(config.site?.map_bottom_right_lat), Number(config.site?.map_bottom_right_lon)]
+    ];
+
+    // --- Initialize map ---
+    const map = L.map('map');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    map.fitBounds(bayAreaBounds);
+
+    // --- Utilities ---
+    const palette = ["#e6194b","#4363d8","#f58231","#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe","#008080","#e6beff","#9a6324","#fffac8","#800000","#aaffc3","#808000","#ffd8b1","#000075","#808080"];
+    const colorMap = new Map(); let nextColorIndex=0;
+    function hashToColor(str){
+        if(colorMap.has(str)) return colorMap.get(str);
+        const color = palette[nextColorIndex % palette.length];
+        colorMap.set(str, color); nextColorIndex++;
+        return color;
+    }
+
+    function timeAgo(dateStr){
+        const diff = Date.now() - new Date(dateStr);
+        const s=Math.floor(diff/1000), m=Math.floor(s/60), h=Math.floor(m/60), d=Math.floor(h/24);
+        if(d>0) return d+'d'; if(h>0) return h+'h'; if(m>0) return m+'m'; return s+'s';
+    }
+
+    function isInvalidCoord(node){ return !node || !node.last_lat || !node.last_long; }
+
+    // --- Load nodes ---
+    let nodes = [];
+    try {
+        const res = await fetch('/api/nodes');
+        const data = await res.json();
+        nodes = data.nodes || [];
+    } catch(err){ console.error('Failed to load nodes', err); }
+
+    const markers = {};
+    const markerById = {};      // Keyed by numeric node_id for packets
+    const nodeMap = new Map();  // Keyed by numeric node_id
+    const channels = new Set();
+    const activeBlinks = new Map();
+
+    const portMap = {1:"Text",67:"Telemetry",3:"Position",70:"Traceroute",4:"Node Info",71:"Neighbour Info",73:"Map Report"};
+
+    nodes.forEach(node=>{
+        if(isInvalidCoord(node)) return;
+        const lat = node.last_lat/1e7;
+        const lng = node.last_long/1e7;
+        const isRouter = node.role.toLowerCase().includes("router");
+
+        channels.add(node.channel);
+        nodeMap.set(node.node_id,node);
+
+        const color = hashToColor(node.channel);
+        const marker = L.circleMarker([lat,lng],{radius:isRouter?9:7,color:"white",fillColor:color,fillOpacity:1,weight:0.7}).addTo(map);
+        marker.nodeId = node.node_id;
+        marker.originalColor = color;
+        markerById[node.node_id]=marker;
+
+        let popupContent=`<b>${node.long_name} (${node.short_name})</b><br>
+                          <b>Channel:</b> ${node.channel}<br>
+                          <b>Model:</b> ${node.hw_model}<br>
+                          <b>Role:</b> ${node.role}<br>`;
+        if(node.last_update) popupContent+=`<b>Last seen:</b> ${timeAgo(node.last_update)}<br>`;
+        if(node.firmware) popupContent+=`<b>Firmware:</b> ${node.firmware}<br>`;
+
+        marker.on('click', e=>{
+            e.originalEvent.stopPropagation();
+            marker.bindPopup(popupContent).openPopup();
+            setTimeout(()=>marker.closePopup(),3000);
+        });
+
+        if(!markers[node.channel]) markers[node.channel]=[];
+        markers[node.channel].push({marker,isRouter});
+    });
+
+    // --- Filters ---
+    const filterContainer=document.getElementById('filter-container');
+    channels.forEach(channel=>{
+        const id=`filter-${channel.replace(/\s+/g,'-').toLowerCase()}`;
+        const color=hashToColor(channel);
+        const label=document.createElement('label');
+        label.style.color=color;
+        label.innerHTML=`<input type="checkbox" class="filter-checkbox" id="${id}" checked> ${channel}`;
+        filterContainer.appendChild(label);
+    });
+
+    function updateMarkers(){
+        nodes.forEach(node=>{
+            const id=`filter-${node.channel.replace(/\s+/g,'-').toLowerCase()}`;
+            const checkbox=document.getElementById(id);
+            const marker=markerById[node.node_id];
+            if(marker) marker.setStyle({fillOpacity: checkbox.checked?1:0});
+        });
+        localStorage.setItem('meshview_map_filters', JSON.stringify({
+            channels: Array.from(channels).reduce((obj,c)=>{ obj[c]=document.getElementById(`filter-${c.replace(/\s+/g,'-').toLowerCase()}`).checked; return obj; },{})
+        }));
+    }
+
+    document.querySelectorAll(".filter-checkbox").forEach(input=>input.addEventListener("change",updateMarkers));
+
+    // Load saved filters
+    const savedFilters=JSON.parse(localStorage.getItem('meshview_map_filters')||'{}');
+    if(savedFilters.channels){
+        Object.keys(savedFilters.channels).forEach(c=>{
+            const checkbox=document.getElementById(`filter-${c.replace(/\s+/g,'-').toLowerCase()}`);
+            if(checkbox) checkbox.checked=savedFilters.channels[c];
+        });
+    }
+    updateMarkers();
+
+    // --- Packet blinking ---
+    function blinkNode(marker,longName,portnum){
+        if(!map.hasLayer(marker)) return;
+        if(activeBlinks.has(marker)){
+            clearInterval(activeBlinks.get(marker));
+            marker.setStyle({fillColor: marker.originalColor});
+            if(marker.tooltip) map.removeLayer(marker.tooltip);
+        }
+        let count=0;
+        const portName=portMap[portnum]||`Port ${portnum}`;
+        const tooltip=L.tooltip({permanent:true,direction:'top',offset:[0,-marker.options.radius-5],className:'blinking-tooltip'})
+                        .setContent(`${longName} (${portName})`).setLatLng(marker.getLatLng());
+        tooltip.addTo(map); marker.tooltip=tooltip;
+        const interval=setInterval(()=>{
+            if(map.hasLayer(marker)){
+                marker.setStyle({fillColor:count%2===0?'yellow':marker.originalColor});
+                marker.bringToFront();
+            }
+            count++;
+            if(count>7){ clearInterval(interval); marker.setStyle({fillColor:marker.originalColor}); map.removeLayer(tooltip); activeBlinks.delete(marker); }
+        },500);
+        activeBlinks.set(marker,interval);
+    }
+
+    let lastImportTime=null;
+    async function fetchLatestPacket(){
+        try{
+            const res=await fetch(`/api/packets?limit=1`);
+            const data=await res.json();
+            lastImportTime=data.packets?.[0]?.import_time || new Date().toISOString();
+        }catch(err){ console.error(err); }
+    }
+
+    async function fetchNewPackets(){
+        if(!lastImportTime) return;
+        try{
+            const res=await fetch(`/api/packets?since=${lastImportTime}`);
+            const data=await res.json();
+            if(!data.packets || !data.packets.length) return;
+            let latest=lastImportTime;
+            data.packets.forEach(packet=>{
+                if(packet.import_time && packet.import_time>latest) latest=packet.import_time;
+                const marker=markerById[packet.from_node_id];
+                const nodeData=nodeMap.get(packet.from_node_id);
+                if(marker && nodeData) blinkNode(marker,nodeData.long_name,packet.portnum);
+            });
+            lastImportTime=latest;
+        }catch(err){ console.error(err); }
+    }
+
+    if(mapInterval>0){ fetchLatestPacket(); setInterval(fetchNewPackets,mapInterval*1000); }
+
+})();
+</script>
+
+</body>
+</html>

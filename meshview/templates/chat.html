@@ -2,23 +2,152 @@
 
 {% block css %}
 .timestamp {
-    min-width:10em;
+    min-width: 10em;
 }
-.chat-packet:nth-of-type(odd){
-    background-color:#CCC;
+.chat-packet:nth-of-type(odd) { background-color: #3a3a3a; }
+.chat-packet { border-bottom: 1px solid #555; padding: 8px; border-radius: 8px; }
+.chat-packet:nth-of-type(even) { background-color: #333333; }
+
+@keyframes flash {
+    0% { background-color: #ffe066; }
+    100% { background-color: inherit; }
 }
-.chat-packet:nth-of-type(even){
-    background-color:#EEE;
-}
+.chat-packet.flash { animation: flash 3.5s ease-out; }
+
+/* Nested reply style */
+.replying-to { font-size: 0.85em; color: #aaa; margin-top: 4px; padding-left: 20px; }
+.replying-to .reply-preview { color: #aaa; }
 {% endblock %}
 
-
 {% block body %}
-    <div class="container" hx-ext="sse" sse-connect="/chat_events" sse-swap="chat_packet" hx-swap="afterbegin">
-        {% for packet in packets %}
-        {% include 'chat_packet.html' %}
-        {% else %}
-        No packets found.
-        {% endfor %}
-    </div>
+<div id="chat-container">
+    <div class="container" id="chat-log"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+    const chatContainer = document.querySelector("#chat-log");
+    if (!chatContainer) return console.error("#chat-log not found");
+
+    let lastTime = null;
+    const renderedPacketIds = new Set();
+    const packetMap = new Map();
+    let chatTranslations = {};
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text == null ? "" : text;
+        return div.innerHTML;
+    }
+
+    // 🔑 helper to apply translations
+    function applyTranslations(translations, root=document) {
+        root.querySelectorAll("[data-translate-lang]").forEach(el => {
+            const key = el.dataset.translateLang;
+            if (translations[key]) el.textContent = translations[key];
+        });
+        root.querySelectorAll("[data-translate-lang-title]").forEach(el => {
+            const key = el.dataset.translateLangTitle;
+            if (translations[key]) el.title = translations[key];
+        });
+    }
+
+    function renderPacket(packet, highlight = false) {
+        if (renderedPacketIds.has(packet.id)) return;
+        renderedPacketIds.add(packet.id);
+        packetMap.set(packet.id, packet);
+
+        const date = new Date(packet.import_time);
+        const formattedTime = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const formattedDate = `${(date.getMonth()+1).toString().padStart(2,"0")}/${date.getDate().toString().padStart(2,"0")}/${date.getFullYear()}`;
+        const formattedTimestamp = `${formattedTime} - ${formattedDate}`;
+
+        let replyHtml = "";
+        if (packet.reply_id) {
+            const parent = packetMap.get(packet.reply_id);
+            if (parent) {
+                replyHtml = `
+                    <div class="replying-to">
+                        <div class="reply-preview">
+                            <i data-translate-lang="replying_to"></i>
+                            <strong>${escapeHtml((parent.long_name || "").trim() || `Node ${parent.from_node_id}`)}</strong>:
+                            ${escapeHtml(parent.payload || "")}
+                        </div>
+                    </div>
+                `;
+            } else {
+                replyHtml = `
+                    <div class="replying-to">
+                        <i data-translate-lang="replying_to"></i>
+                        <a href="/packet/${packet.reply_id}">${packet.reply_id}</a>
+                    </div>
+                `;
+            }
+        }
+
+        const div = document.createElement("div");
+        div.className = "row chat-packet" + (highlight ? " flash" : "");
+        div.dataset.packetId = packet.id;
+        div.innerHTML = `
+            <span class="col-2 timestamp" title="${packet.import_time}">${formattedTimestamp}</span>
+            <span class="col-2 channel">
+                <a href="/packet/${packet.id}" title="" data-translate-lang-title="view_packet_details">✉️</a>
+                ${escapeHtml(packet.channel || "")}
+            </span>
+            <span class="col-3 nodename">
+                <a href="/packet_list/${packet.from_node_id}">
+                    ${escapeHtml((packet.long_name || "").trim() || `Node ${packet.from_node_id}`)}
+                </a>
+            </span>
+            <span class="col-5 message">${escapeHtml(packet.payload)}${replyHtml}</span>
+        `;
+        chatContainer.prepend(div);
+
+        // Apply translations to the newly added packet
+        applyTranslations(chatTranslations, div);
+
+        if (highlight) setTimeout(() => div.classList.remove("flash"), 2500);
+    }
+
+    function renderPacketsEnsureDescending(packets, highlight = false) {
+        if (!Array.isArray(packets) || packets.length === 0) return;
+        const sortedDesc = packets.slice().sort((a,b) => new Date(b.import_time)-new Date(a.import_time));
+        for (let i = sortedDesc.length-1; i>=0; i--) renderPacket(sortedDesc[i], highlight);
+    }
+
+    async function fetchInitial() {
+        try {
+            const resp = await fetch("/api/chat?limit=100");
+            const data = await resp.json();
+            if (data?.packets?.length) renderPacketsEnsureDescending(data.packets);
+            lastTime = data?.latest_import_time || lastTime;
+        } catch(err) { console.error("Initial fetch error:", err); }
+    }
+
+    async function fetchUpdates() {
+        try {
+            const url = new URL("/api/chat", window.location.origin);
+            url.searchParams.set("limit","100");
+            if(lastTime) url.searchParams.set("since", lastTime);
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data?.packets?.length) renderPacketsEnsureDescending(data.packets, true);
+            lastTime = data?.latest_import_time || lastTime;
+        } catch(err){ console.error("Fetch updates error:", err); }
+    }
+
+    async function loadTranslations() {
+        try {
+            const langCode = "{{ site_config.get('site', {}).get('language','en') }}";
+            const res = await fetch(`/api/lang?lang=${langCode}&section=chat`);
+            chatTranslations = await res.json();
+            applyTranslations(chatTranslations, document);
+        } catch(err){ console.error("Chat translation load failed:", err); }
+    }
+
+    await loadTranslations();
+    await fetchInitial();
+    setInterval(fetchUpdates, 5000);
+});
+</script>
 {% endblock %}
