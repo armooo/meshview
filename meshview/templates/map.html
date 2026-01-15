@@ -1,0 +1,560 @@
+{% extends "base.html" %}
+
+{% block css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<style>
+    .legend { background:white;padding:8px;line-height:1.5;border-radius:5px;box-shadow:0 0 10px rgba(0,0,0,0.3);font-size:14px;color:black; }
+    .legend i { width:12px;height:12px;display:inline-block;margin-right:6px;border-radius:50%; }
+
+    #filter-container { text-align:center;margin-top:10px; }
+    .filter-checkbox { margin:0 10px; }
+
+    #share-button,
+    #reset-filters-button {
+        padding:5px 15px;border:none;border-radius:4px;font-size:14px;cursor:pointer;color:white;
+    }
+    #share-button { margin-left:20px; background-color:#4CAF50; }
+    #share-button:hover { background-color:#45a049; }
+    #share-button:active { background-color:#3d8b40; }
+
+    #reset-filters-button { margin-left:10px; background-color:#f44336; }
+    #reset-filters-button:hover { background-color:#da190b; }
+    #reset-filters-button:active { background-color:#c41e0d; }
+
+    .blinking-tooltip { background:white;color:black;border:1px solid black;border-radius:4px;padding:2px 5px; }
+</style>
+{% endblock %}
+
+{% block body %}
+
+<div id="map" style="width:100%; height:calc(100vh - 270px)"></div>
+
+<div id="map-legend"
+     class="legend"
+     style="position:absolute;
+            bottom:30px;
+            right:15px;
+            z-index:500;
+            pointer-events:none;">
+    <div>
+        <i style="background:orange; width:15px; height:3px; border-radius:0;"></i>
+        <span data-translate-lang="legend_traceroute">Traceroute Path (arrowed)</span>
+    </div>
+
+    <div style="margin-top:6px;">
+        <i style="background:gray; width:15px; height:3px; border-radius:0;"></i>
+        <span data-translate-lang="legend_neighbor">Neighbor Link</span>
+    </div>
+</div>
+
+<div id="filter-container">
+    <input type="checkbox" class="filter-checkbox" id="filter-routers-only">
+    <span data-translate-lang="show_routers_only">Show Routers Only</span>
+</div>
+
+<div style="text-align:center;margin-top:5px;">
+    <button id="share-button" onclick="shareCurrentView()" data-translate-lang="share_view">
+        🔗 Share This View
+    </button>
+    <button id="reset-filters-button" onclick="resetFiltersToDefaults()" data-translate-lang="reset_filters">
+        ↺ Reset Filters To Defaults
+    </button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylinedecorator.js"
+        integrity="sha384-FhPn/2P/fJGhQLeNWDn9B/2Gml2bPOrKJwFqJXgR3xOPYxWg5mYQ5XZdhUSugZT0"
+        crossorigin></script>
+
+<script>
+/* ======================================================
+   MAP PAGE TRANSLATION SYSTEM
+   ====================================================== */
+
+let mapTranslations = {};
+
+async function loadTranslationsMap() {
+    try {
+        const cfg = await window._siteConfigPromise;
+        const lang = cfg?.site?.language || "en";
+        const res  = await fetch(`/api/lang?lang=${lang}&section=map`);
+        mapTranslations = await res.json();
+        applyTranslationsMap();
+    } catch (err) {
+        console.error("Map translation load failed:", err);
+    }
+}
+
+function applyTranslationsMap(root = document) {
+    root.querySelectorAll("[data-translate-lang]").forEach(el => {
+        const key = el.dataset.translateLang;
+        const val = mapTranslations[key];
+        if (!val) return;
+
+        if (el.tagName === "INPUT" && el.placeholder !== undefined) {
+            el.placeholder = val;
+        } else {
+            el.textContent = val;
+        }
+    });
+}
+
+/* ======================================================
+   EXISTING MAP LOGIC
+   ====================================================== */
+
+var map = L.map('map');
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+
+// Data structures
+var nodes = [], markers = {}, markerById = {}, nodeMap = new Map();
+var edgeLayer = L.layerGroup().addTo(map), selectedNodeId = null;
+var activeBlinks = new Map(), lastImportTime = null;
+var mapInterval = 0;
+
+const portMap = {
+    1:"Text",
+    67:"Telemetry",
+    3:"Position",
+    70:"Traceroute",
+    4:"Node Info",
+    71:"Neighbour Info",
+    73:"Map Report"
+};
+
+const palette = ["#e6194b","#4363d8","#f58231","#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe",
+                 "#008080","#e6beff","#9a6324","#fffac8","#800000","#aaffc3","#808000","#ffd8b1",
+                 "#000075","#808080"];
+
+const colorMap = new Map(); let nextColorIndex = 0;
+const channelSet = new Set();
+
+map.on("popupopen", function (e) {
+    const popupEl = e.popup.getElement();
+    if (popupEl) applyTranslationsMap(popupEl);
+});
+
+function timeAgoFromUs(us){
+    const diff = Date.now() - (us / 1000);
+    const s = Math.floor(diff/1000), m = Math.floor(s/60),
+          h = Math.floor(m/60),       d = Math.floor(h/24);
+    return d>0?d+"d":h>0?h+"h":m>0?m+"m":s+"s";
+}
+
+function hashToColor(str){
+    if(colorMap.has(str)) return colorMap.get(str);
+    const c = palette[nextColorIndex++ % palette.length];
+    colorMap.set(str,c);
+    return c;
+}
+
+function isInvalidCoord(n){
+    return !n || !n.lat || !n.long || n.lat === 0 || n.long === 0 ||
+           Number.isNaN(n.lat) || Number.isNaN(n.long);
+}
+
+/* ======================================================
+   PACKET FETCHING (unchanged)
+   ====================================================== */
+
+function fetchLatestPacket(){
+    fetch(`/api/packets?limit=1`)
+      .then(r=>r.json())
+      .then(data=>{
+          lastImportTime=data.packets?.[0]?.import_time_us||0;
+      })
+      .catch(console.error);
+}
+
+function fetchNewPackets(){
+    if(mapInterval <= 0) return;
+    if(lastImportTime===null) return;
+
+    const url = new URL(`/api/packets`, window.location.origin);
+    url.searchParams.set("since", lastImportTime);
+    url.searchParams.set("limit", 50);
+
+    fetch(url)
+      .then(r=>r.json())
+      .then(data=>{
+          if(!data.packets || data.packets.length===0) return;
+          let latest = lastImportTime;
+
+          data.packets.forEach(pkt=>{
+              if(pkt.import_time_us > latest) latest = pkt.import_time_us;
+
+              const marker = markerById[pkt.from_node_id];
+              const nodeData = nodeMap.get(pkt.from_node_id);
+              if(marker && nodeData) blinkNode(marker,nodeData.long_name,pkt.portnum);
+          });
+
+          lastImportTime = latest;
+      })
+      .catch(console.error);
+}
+
+let packetInterval=null;
+
+function startPacketFetcher(){
+    if(mapInterval<=0) return;
+    if(!packetInterval){
+        fetchLatestPacket();
+        packetInterval=setInterval(fetchNewPackets,mapInterval*1000);
+    }
+}
+
+function stopPacketFetcher(){
+    if(packetInterval){
+        clearInterval(packetInterval);
+        packetInterval=null;
+    }
+}
+
+document.addEventListener("visibilitychange",()=>{
+    document.hidden?stopPacketFetcher():startPacketFetcher();
+});
+
+async function waitForConfig() {
+    while (typeof window._siteConfigPromise === "undefined") {
+        await new Promise(r => setTimeout(r, 100));
+    }
+    try {
+        const cfg = await window._siteConfigPromise;
+        return cfg.site || {};
+    } catch (err) {
+        console.error("Error loading site config:", err);
+        return {};
+    }
+}
+
+async function initMapPolling() {
+    try {
+        const site = await waitForConfig();
+        mapInterval = parseInt(site.map_interval, 10) || 0;
+
+        const params = new URLSearchParams(window.location.search);
+        const lat  = parseFloat(params.get('lat'));
+        const lng  = parseFloat(params.get('lng'));
+        const zoom = parseInt(params.get('zoom'), 10);
+
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(zoom)) {
+            map.setView([lat, lng], zoom);
+            window.configBoundsApplied = true;
+            setTimeout(() => map.invalidateSize(), 100);
+        }
+        else {
+            const tl = [parseFloat(site.map_top_left_lat), parseFloat(site.map_top_left_lon)];
+            const br = [parseFloat(site.map_bottom_right_lat), parseFloat(site.map_bottom_right_lon)];
+
+            if (tl.every(isFinite) && br.every(isFinite)) {
+                map.fitBounds([tl, br]);
+                window.configBoundsApplied = true;
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        }
+
+        if (mapInterval > 0) startPacketFetcher();
+
+    } catch (err) {
+        console.error("Failed to load /api/config:", err);
+    }
+}
+
+initMapPolling();
+
+/* ======================================================
+   LOAD NODES
+   ====================================================== */
+
+fetch('/api/nodes?days_active=3')
+    .then(r=>r.json())
+    .then(data=>{
+        if(!data.nodes) return;
+
+        nodes = data.nodes.map(n=>({
+            key: n.node_id ?? n.id,
+            id: n.id,
+            node_id: n.node_id,
+            lat: n.last_lat ? n.last_lat/1e7 : null,
+            long: n.last_long ? n.last_long/1e7 : null,
+            long_name: n.long_name || "",
+            short_name: n.short_name || "",
+            channel: n.channel || "",
+            hw_model: n.hw_model || "",
+            role: n.role || "",
+            firmware: n.firmware || "",
+            last_seen_us: n.last_seen_us || null,
+            isRouter: (n.role||"").toLowerCase().includes("router")
+        }));
+
+        nodes.forEach(n=>{
+            nodeMap.set(n.key, n);
+            if(n.channel) channelSet.add(n.channel);
+        });
+
+        renderNodesOnMap();
+        createChannelFilters();
+    })
+    .catch(console.error);
+
+/* ======================================================
+   RENDER NODES
+   ====================================================== */
+
+function renderNodesOnMap(){
+    nodes.forEach(node=>{
+        if(isInvalidCoord(node)) return;
+
+        const color = hashToColor(node.channel);
+
+        const marker = L.circleMarker([node.lat,node.long], {
+            radius: node.isRouter ? 9 : 7,
+            color: "white",
+            fillColor: color,
+            fillOpacity: 1,
+            weight: 0.7
+        }).addTo(map);
+
+        marker.nodeId = node.key;
+        marker.originalColor = color;
+        markerById[node.key] = marker;
+
+        const popup = `
+            <b><a href="/node/${node.node_id}">${node.long_name}</a> (${node.short_name})</b><br>
+
+            <b data-translate-lang="channel_label"></b> ${node.channel}<br>
+            <b data-translate-lang="model_label"></b> ${node.hw_model}<br>
+            <b data-translate-lang="role_label"></b> ${node.role}<br>
+
+            ${
+                node.last_seen_us
+                    ? `<b data-translate-lang="last_seen"></b> ${timeAgoFromUs(node.last_seen_us)}<br>`
+                    : ""
+            }
+
+            ${
+                node.firmware
+                    ? `<b data-translate-lang="firmware"></b> ${node.firmware}<br>`
+                    : ""
+            }
+        `;
+
+        marker.on('click', () => {
+            onNodeClick(node);
+            marker.bindPopup(popup).openPopup();
+        });
+    });
+
+    setTimeout(() => applyTranslationsMap(), 50);
+}
+
+/* ======================================================
+   ⭐ NEW: DYNAMIC EDGE LOADING
+   ====================================================== */
+
+async function onNodeClick(node){
+    selectedNodeId = node.key;
+    edgeLayer.clearLayers();
+
+    try {
+        const res = await fetch(`/api/edges?node_id=${node.key}`);
+        const data = await res.json();
+        const edges = data.edges || [];
+
+        edges.forEach(edge=>{
+            const f = nodeMap.get(edge.from);
+            const t = nodeMap.get(edge.to);
+
+            if(!f || !t || isInvalidCoord(f) || isInvalidCoord(t)) return;
+
+            const color = edge.type === "neighbor" ? "gray" : "orange";
+            const line  = L.polyline([[f.lat, f.long], [t.lat, t.long]], {
+                color, weight: 3
+            }).addTo(edgeLayer);
+
+            if(edge.type === "traceroute"){
+                L.polylineDecorator(line, {
+                    patterns: [
+                        {
+                            offset: '100%',
+                            repeat: 0,
+                            symbol: L.Symbol.arrowHead({
+                                pixelSize:5,
+                                polygon:false,
+                                pathOptions:{stroke:true,color}
+                            })
+                        }
+                    ]
+                }).addTo(edgeLayer);
+            }
+        });
+
+    } catch(err){
+        console.error("Failed to load edges for node", node.key, err);
+    }
+}
+
+map.on('click', e=>{
+    if(!e.originalEvent.target.classList.contains('leaflet-interactive')){
+        edgeLayer.clearLayers();
+        selectedNodeId=null;
+    }
+});
+
+/* ======================================================
+   BLINKING
+   ====================================================== */
+
+function blinkNode(marker,longName,portnum){
+    if(!map.hasLayer(marker)) return;
+
+    if(activeBlinks.has(marker)){
+        clearInterval(activeBlinks.get(marker));
+        marker.setStyle({ fillColor: marker.originalColor });
+        if(marker.tooltip) map.removeLayer(marker.tooltip);
+    }
+
+    let blinkCount = 0;
+    const tooltip = L.tooltip({
+        permanent:true,
+        direction:'top',
+        offset:[0,-marker.options.radius-5],
+        className:'blinking-tooltip'
+    })
+    .setContent(`${longName} (${portMap[portnum] || "Port "+portnum})`)
+    .setLatLng(marker.getLatLng())
+    .addTo(map);
+
+    marker.tooltip = tooltip;
+
+    const interval = setInterval(()=>{
+        if(map.hasLayer(marker)){
+            marker.setStyle({
+                fillColor: blinkCount%2===0 ? 'yellow' : marker.originalColor
+            });
+            marker.bringToFront();
+        }
+        blinkCount++;
+
+        if(blinkCount>7){
+            clearInterval(interval);
+            marker.setStyle({ fillColor: marker.originalColor });
+            map.removeLayer(tooltip);
+            activeBlinks.delete(marker);
+        }
+
+    },500);
+
+    activeBlinks.set(marker, interval);
+}
+
+/* ======================================================
+   CHANNEL FILTERS
+   ====================================================== */
+
+function createChannelFilters(){
+    const filterContainer = document.getElementById("filter-container");
+    const saved = JSON.parse(localStorage.getItem("mapFilters") || "{}");
+
+    channelSet.forEach(channel=>{
+        const cb=document.createElement("input");
+        cb.type="checkbox";
+        cb.className="filter-checkbox";
+        cb.id=`filter-channel-${channel}`;
+        cb.checked = saved[channel] !== false;
+
+        cb.addEventListener("change", saveFiltersToLocalStorage);
+        cb.addEventListener("change", updateNodeVisibility);
+
+        filterContainer.appendChild(cb);
+
+        const label=document.createElement("label");
+        label.htmlFor=cb.id;
+        label.innerText=channel;
+        label.style.color = hashToColor(channel);
+        filterContainer.appendChild(label);
+    });
+
+    const routerOnly=document.getElementById("filter-routers-only");
+    routerOnly.checked = saved["routersOnly"] || false;
+
+    routerOnly.addEventListener("change", saveFiltersToLocalStorage);
+    routerOnly.addEventListener("change", updateNodeVisibility);
+
+    updateNodeVisibility();
+}
+
+function saveFiltersToLocalStorage(){
+    const state = {};
+    channelSet.forEach(ch=>{
+        state[ch] = document.getElementById(`filter-channel-${ch}`).checked;
+    });
+    state["routersOnly"] = document.getElementById("filter-routers-only").checked;
+
+    localStorage.setItem("mapFilters", JSON.stringify(state));
+}
+
+function updateNodeVisibility(){
+    const routerOnly = document.getElementById("filter-routers-only").checked;
+    const activeChannels = [...channelSet].filter(ch =>
+        document.getElementById(`filter-channel-${ch}`).checked
+    );
+
+    nodes.forEach(n=>{
+        const marker = markerById[n.key];
+        if(marker){
+            const visible =
+                (!routerOnly || n.isRouter) &&
+                activeChannels.includes(n.channel);
+
+            visible ? map.addLayer(marker) : map.removeLayer(marker);
+        }
+    });
+}
+
+/* ======================================================
+   SHARE / RESET
+   ====================================================== */
+
+function shareCurrentView() {
+    const c = map.getCenter();
+    const url = `${window.location.origin}/map?lat=${c.lat.toFixed(6)}&lng=${c.lng.toFixed(6)}&zoom=${map.getZoom()}`;
+
+    navigator.clipboard.writeText(url).then(()=>{
+        const btn = document.getElementById('share-button');
+        const old = btn.textContent;
+        btn.textContent = '✓ ' + (mapTranslations.link_copied || 'Link Copied!');
+        btn.style.backgroundColor = '#2196F3';
+
+        setTimeout(()=>{
+            btn.textContent = old;
+            btn.style.backgroundColor = '#4CAF50';
+        }, 2000);
+    });
+}
+
+function resetFiltersToDefaults(){
+    document.getElementById("filter-routers-only").checked = false;
+    channelSet.forEach(ch => {
+        document.getElementById(`filter-channel-${ch}`).checked = true;
+    });
+    saveFiltersToLocalStorage();
+    updateNodeVisibility();
+}
+
+/* ======================================================
+   TRANSLATION LOAD
+   ====================================================== */
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadTranslationsMap();
+});
+</script>
+
+{% endblock %}

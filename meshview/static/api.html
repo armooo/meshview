@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Meshview API Documentation</title>
+<style>
+    body {
+        background: #121212;
+        color: #eee;
+        font-family: monospace;
+        margin: 20px;
+        line-height: 1.5;
+    }
+    h1, h2, h3 { color: #79c0ff; }
+    code {
+        background: #1e1e1e;
+        padding: 3px 6px;
+        border-radius: 4px;
+        color: #ffd479;
+        font-size: 0.95rem;
+    }
+    .endpoint {
+        border: 1px solid #333;
+        padding: 12px;
+        margin-bottom: 18px;
+        border-radius: 8px;
+        background: #1a1a1a;
+    }
+    .method {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-right: 6px;
+        font-weight: bold;
+    }
+    .get { background: #0066cc; }
+    .path { font-weight: bold; color: #fff; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+    }
+    th, td {
+        border: 1px solid #444;
+        padding: 6px 10px;
+    }
+    th {
+        background: #222;
+        color: #9ddcff;
+    }
+    .example {
+        margin-top: 10px;
+        padding: 10px;
+        background: #161616;
+        border-radius: 6px;
+        border: 1px solid #333;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>Meshview API Documentation</h1>
+<p>This page describes all REST endpoints provided by Meshview.</p>
+
+
+<!------------------------------ NODES ------------------------------>
+<h2>/api/nodes</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/nodes</span>
+    <p>Returns a list of mesh nodes.</p>
+
+    <h3>Query Parameters</h3>
+    <table>
+        <tr><th>Parameter</th><th>Description</th></tr>
+        <tr><td>role</td><td>Filter by node role</td></tr>
+        <tr><td>channel</td><td>Filter by channel</td></tr>
+        <tr><td>hw_model</td><td>Hardware model filter</td></tr>
+        <tr><td>days_active</td><td>Only nodes seen within X days</td></tr>
+    </table>
+
+    <div class="example">
+        <b>Example:</b><br>
+        <code>/api/nodes?days_active=3</code>
+    </div>
+</div>
+
+
+<!------------------------------ PACKETS ------------------------------>
+<h2>/api/packets</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/packets</span>
+    <p>Fetch packets with many filters. Returns decoded packet data.</p>
+
+    <h3>Query Parameters</h3>
+    <table>
+        <tr><th>Parameter</th><th>Description</th></tr>
+        <tr><td>packet_id</td><td>Return exactly one packet</td></tr>
+        <tr><td>limit</td><td>Max number of results (1–100)</td></tr>
+        <tr><td>since</td><td>Only packets newer than import_time_us</td></tr>
+        <tr><td>from_node_id</td><td>Filter by sender node</td></tr>
+        <tr><td>to_node_id</td><td>Filter by destination node</td></tr>
+        <tr><td>node_id</td><td>Legacy: match either from or to</td></tr>
+        <tr><td>portnum</td><td>Filter by port number</td></tr>
+        <tr><td>contains</td><td>Substring filter for payload</td></tr>
+    </table>
+
+    <div class="example">
+        <b>Example:</b><br>
+        <code>/api/packets?from_node_id=123&limit=100</code>
+    </div>
+</div>
+
+
+<!------------------------------ PACKETS SEEN ------------------------------>
+<h2>/api/packets_seen/{packet_id}</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/packets_seen/&lt;packet_id&gt;</span>
+    <p>Returns list of gateways that heard the packet (RSSI/SNR/hops).</p>
+
+    <div class="example">
+        <b>Example:</b><br>
+        <code>/api/packets_seen/3314808102</code>
+    </div>
+</div>
+
+
+<!------------------------------ STATS ------------------------------>
+<h2>/api/stats</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/stats</span>
+    <p>Returns aggregated packet statistics for a node or globally.</p>
+
+    <h3>Query Parameters</h3>
+    <table>
+        <tr><th>Parameter</th><th>Description</th></tr>
+        <tr><td>period_type</td><td>"hour" or "day"</td></tr>
+        <tr><td>length</td><td>How many hours/days</td></tr>
+        <tr><td>node</td><td>Node ID for combined sent+seen stats</td></tr>
+        <tr><td>from_node</td><td>Filter by sender</td></tr>
+        <tr><td>to_node</td><td>Filter by receiver</td></tr>
+        <tr><td>portnum</td><td>Filter by port</td></tr>
+        <tr><td>channel</td><td>Filter by channel</td></tr>
+    </table>
+
+    <div class="example">
+        <b>Example:</b><br>
+        <code>/api/stats?node=1128180332&period_type=day&length=1</code>
+    </div>
+</div>
+
+
+<!------------------------------ STATS COUNT ------------------------------>
+<h2>/api/stats/count</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/stats/count</span>
+    <p>
+        Returns <b>total packets</b> and <b>total packet_seen entries</b>.
+        When no filters are provided, it returns global totals.
+        When filters are specified, they narrow the time, channel,
+        direction, or specific packet.
+    </p>
+
+    <h3>Query Parameters</h3>
+    <table>
+        <tr><th>Parameter</th><th>Description</th></tr>
+        <tr><td>period_type</td><td>"hour" or "day"</td></tr>
+        <tr><td>length</td><td>Number of hours or days (depends on period_type)</td></tr>
+        <tr><td>channel</td><td>Filter by channel</td></tr>
+        <tr><td>from_node</td><td>Only packets sent by this node</td></tr>
+        <tr><td>to_node</td><td>Only packets received by this node</td></tr>
+        <tr><td>packet_id</td><td>Filter seen counts for specific packet_id</td></tr>
+    </table>
+
+    <div class="example">
+        <b>Example:</b><br>
+        <code>/api/stats/count?from_node=1128180332&period_type=day&length=1</code>
+    </div>
+</div>
+
+
+
+<!------------------------------ EDGES ------------------------------>
+<h2>/api/edges</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/edges</span>
+    <p>Returns traceroute and/or neighbor edges for graph rendering.</p>
+
+    <h3>Query Parameters</h3>
+    <table>
+        <tr><th>Parameter</th><th>Description</th></tr>
+        <tr><td>type</td><td>"traceroute", "neighbor", or omitted for both</td></tr>
+    </table>
+
+    <div class="example">
+        <b>Example:</b><br>
+        <code>/api/edges?type=neighbor</code>
+    </div>
+</div>
+
+
+<!------------------------------ CONFIG ------------------------------>
+<h2>/api/config</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/config</span>
+    <p>Returns Meshview configuration (site, MQTT, cleanup, etc.).</p>
+
+    <div class="example">
+        <code>/api/config</code>
+    </div>
+</div>
+
+
+<!------------------------------ LANG ------------------------------>
+<h2>/api/lang</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/api/lang</span>
+    <p>Returns translated text for the UI.</p>
+
+    <h3>Parameters</h3>
+    <table>
+        <tr><th>lang</th><td>Language code (e.g. "en")</td></tr>
+        <tr><th>section</th><td>Optional UI section (firehose, map, top...)</td></tr>
+    </table>
+
+    <div class="example">
+        <code>/api/lang?lang=en&section=firehose</code>
+    </div>
+</div>
+
+
+<!------------------------------ HEALTH ------------------------------>
+<h2>/health</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/health</span>
+    <p>Returns API + database status.</p>
+</div>
+
+
+<!------------------------------ VERSION ------------------------------>
+<h2>/version</h2>
+
+<div class="endpoint">
+    <span class="method get">GET</span>
+    <span class="path">/version</span>
+    <p>Returns Meshview version and Git revision.</p>
+</div>
+
+
+<br><br>
+<hr>
+<p style="text-align:center; color:#666;">Meshview API — generated documentation</p>
+
+</body>
+</html>

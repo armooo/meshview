@@ -1,13 +1,50 @@
-protobuf
-aiomqtt
-sqlalchemy[asyncio]
-cryptography
-aiosqlite
-aiohttp
-aiodns
-Jinja2
+#############################
+# Runtime dependencies
+#############################
+
+# Core async + networking
+aiohttp~=3.11.12
 aiohttp-sse
-asyncpg
-seaborn
-pydot
-plotly
+aiodns~=3.2.0
+aiomqtt~=2.3.0
+asyncpg~=0.30.0
+aiosqlite~=0.21.0
+
+# Database + ORM
+sqlalchemy[asyncio]~=2.0.38
+alembic~=1.14.0
+
+# Serialization / security
+protobuf~=5.29.3
+cryptography~=44.0.1
+
+# Templates
+Jinja2~=3.1.5
+MarkupSafe~=3.0.2
+
+# Graphs / diagrams
+pydot~=3.0.4
+
+
+#############################
+# Development / Analysis / Debugging
+#############################
+
+# Data science stack
+numpy~=2.2.3
+pandas~=2.2.3
+matplotlib~=3.10.0
+seaborn~=0.13.2
+plotly~=6.0.0
+
+# Image support
+pillow~=11.1.0
+
+# Debugging / profiling
+psutil~=7.0.0
+objgraph~=3.6.2
+
+# Testing
+pytest~=8.3.4
+pytest-aiohttp~=1.0.5
+pytest-asyncio~=0.24.0

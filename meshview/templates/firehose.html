@@ -1,39 +1,404 @@
 {% extends "base.html" %}
 
+{% block css %}
+.container {
+    margin: 0 auto;
+    padding: 10px;
+}
+#pause-button {
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 0.9rem;
+    border-radius: 6px;
+}
+
+.port-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #fff;
+}
+
+/* Packet table */
+.packet-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    color: #e4e9ee;
+}
+
+.packet-table th, .packet-table td {
+    border: 1px solid #3a3f44;
+    padding: 6px 10px;
+    text-align: left;
+}
+.packet-table th {
+    background-color: #1f2226;
+    font-weight: bold;
+}
+.packet-table tr:nth-of-type(odd) { background-color: #272b2f; }
+.packet-table tr:nth-of-type(even) { background-color: #212529; }
+
+/* Port tag */
+.port-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #fff;
+}
+
+.to-mqtt { font-style: italic; color: #aaa; }
+
+/* Payload rows */
+.payload-row { display: none; background-color: #1b1e22; }
+.payload-cell {
+    padding: 8px 12px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    color: #b0bec5;
+}
+.packet-table tr.expanded + .payload-row {
+    display: table-row;
+}
+
+/* Toggle arrow */
+.toggle-btn {
+    cursor: pointer;
+    color: #aaa;
+    margin-right: 6px;
+    font-weight: bold;
+}
+.toggle-btn:hover { color: #fff; }
+
+/* Inline link next to port tag */
+.inline-link {
+    margin-left: 6px;
+    font-weight: bold;
+    text-decoration: none;
+    color: #9fd4ff;
+}
+.inline-link:hover {
+    color: #c7e6ff;
+}
+{% endblock %}
+
 {% block body %}
-<div class="container" hx-ext="sse" sse-connect="/events{% if portnum %}?portnum={{portnum}}{% endif%}">
-    <form class="row">
-        {% set options = {
-                1: "Text Message",
-                3: "Position",
-                4: "Node Info",
-                67: "Telemetry",
-                71: "Neighbor Info",
-            }
-        %}
-        <select name="portnum" class="col-2 m-2">
-            <option
-                value = ""
-                {% if portnum not in options %}selected{% endif %}
-            >All</option>
-            {% for value, name in options.items() %}
-            <option
-                value="{{value}}"
-                {% if value == portnum %}selected{% endif %}
-            >{{ name }}</option>
-            {% endfor %}
-        </select>
-        <input type="submit" class="col-2 m-2"/>
+<div class="container">
+
+    <form class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0" data-translate-lang="live_feed">📡 Live Feed</h2>
+
+        <button type="button"
+                id="pause-button"
+                class="btn btn-sm btn-outline-secondary"
+                data-translate-lang="pause">
+            Pause
+        </button>
     </form>
-    <div class="row">
-        <div class="col-6" id="packet_list" sse-swap="packet" hx-swap="afterbegin">
-            {% for packet in packets %}
-            {% include 'packet.html' %}
-            {% else %}
-            No packets found.
-            {% endfor %}
-        </div>
-        <div class="col-6 sticky-top" id="packet_details" style="height: 95vh; overflow: scroll">
-    </div>
+
+    <table class="packet-table">
+        <thead>
+            <tr>
+                <th data-translate-lang="time">Time</th>
+                <th data-translate-lang="packet_id">Packet ID</th>
+                <th data-translate-lang="from">From</th>
+                <th data-translate-lang="to">To</th>
+                <th data-translate-lang="port">Port</th>
+            </tr>
+        </thead>
+        <tbody id="packet_list"></tbody>
+    </table>
+
 </div>
+
+<script src="/static/portmaps.js"></script>
+<script>
+/* ======================================================
+   FIREHOSE TRANSLATION SYSTEM (isolated from base)
+   ====================================================== */
+let firehoseTranslations = {};
+
+function applyTranslationsFirehose(translations, root=document) {
+    root
+      .querySelectorAll("[data-translate-lang]")
+      .forEach(el => {
+          const key = el.dataset.translateLang;
+          if (!translations[key]) return;
+
+          if (el.tagName === "INPUT" && el.placeholder !== undefined) {
+              el.placeholder = translations[key];
+          } else {
+              el.textContent = translations[key];
+          }
+      });
+}
+
+async function loadTranslationsFirehose() {
+    try {
+        const cfg = await window._siteConfigPromise;
+        const lang = cfg?.site?.language || "en";
+
+        const res = await fetch(`/api/lang?lang=${lang}&section=firehose`);
+        firehoseTranslations = await res.json();
+
+        applyTranslationsFirehose(firehoseTranslations);
+    } catch (err) {
+        console.error("Firehose translation load failed:", err);
+    }
+}
+
+/* ======================================================
+   NODE LOOKUP
+   ====================================================== */
+let nodeMap = {};
+
+async function loadNodes() {
+    try {
+        const res = await fetch("/api/nodes");
+        const data = await res.json();
+
+        for (const n of data.nodes || []) {
+            nodeMap[n.node_id] = n.long_name || n.short_name || n.id || n.node_id;
+        }
+
+        nodeMap[4294967295] = firehoseTranslations.all_broadcast || "All";
+    } catch (err) {
+        console.error("Failed loading nodes:", err);
+    }
+}
+
+function nodeName(id) {
+    return nodeMap[id] || id;
+}
+
+/* ======================================================
+   PORT COLORS & NAMES
+   ====================================================== */
+const PORT_MAP = window.PORT_MAP || {};
+const PORT_COLORS = window.PORT_COLORS || {};
+
+function portLabel(portnum, payload, linksHtml) {
+    const name = PORT_MAP[portnum] || "Unknown";
+    const color = PORT_COLORS[portnum] || "#6c757d";
+
+    const safePayload = payload
+        ? payload.replace(/"/g, "&quot;")
+        : "";
+
+    return `
+        <span class="port-tag" style="background-color:${color}" title="${safePayload}">
+            ${name}
+        </span>
+        <span class="text-secondary">(${portnum})</span>
+        ${linksHtml || ""}
+    `;
+}
+
+/* ======================================================
+   TIME FORMAT
+   ====================================================== */
+function formatTimes(importTimeUs) {
+    const ms = Number(importTimeUs) / 1000;
+    if (!Number.isFinite(ms)) {
+        return { local: "—", utc: "—", epoch: "—" };
+    }
+    const date = new Date(ms);
+    const local = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short"
+    });
+    const utc = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZone: "UTC",
+        timeZoneName: "short"
+    });
+    return { local, utc, epoch: String(importTimeUs) };
+}
+
+function logPacketTimes(packet) {
+    const times = formatTimes(packet.import_time_us);
+    console.log(
+        "[firehose] packet time",
+        "id=" + packet.id,
+        "epoch_us=" + times.epoch,
+        "local=" + times.local,
+        "utc=" + times.utc
+    );
+}
+
+/* ======================================================
+   FIREHOSE FETCHING
+   ====================================================== */
+let lastImportTimeUs = null;
+let updatesPaused = false;
+let updateInterval = 3000;
+
+async function configureFirehose() {
+    try {
+        const cfg = await window._siteConfigPromise;
+        const sec = cfg?.site?.firehose_interval;
+        if (sec && !isNaN(sec)) updateInterval = sec * 1000;
+    } catch {}
+}
+
+async function fetchUpdates() {
+    if (updatesPaused) return;
+
+    const url = new URL("/api/packets", window.location.origin);
+    url.searchParams.set("limit", 100);
+
+    if (lastImportTimeUs)
+        url.searchParams.set("since", lastImportTimeUs);
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const packets = data.packets || [];
+        if (!packets.length) return;
+
+        const list = document.getElementById("packet_list");
+
+        for (const pkt of packets.reverse()) {
+            logPacketTimes(pkt);
+
+            /* FROM — includes translation */
+            const from =
+                pkt.from_node_id === 4294967295
+                    ? `<span class="to-mqtt" data-translate-lang="all_broadcast">
+                           ${firehoseTranslations.all_broadcast || "All"}
+                       </span>`
+                    : `<a href="/node/${pkt.from_node_id}" style="text-decoration:underline; color:inherit;">
+                           ${nodeMap[pkt.from_node_id] || pkt.from_node_id}
+                       </a>`;
+
+            /* TO — includes translation */
+            const to =
+                pkt.to_node_id === 1
+                    ? `<span class="to-mqtt" data-translate-lang="direct_to_mqtt">
+                           ${firehoseTranslations.direct_to_mqtt || "direct to MQTT"}
+                       </span>`
+                    : pkt.to_node_id === 4294967295
+                    ? `<span class="to-mqtt" data-translate-lang="all_broadcast">
+                           ${firehoseTranslations.all_broadcast || "All"}
+                       </span>`
+                    : `<a href="/node/${pkt.to_node_id}" style="text-decoration:underline; color:inherit;">
+                           ${nodeMap[pkt.to_node_id] || pkt.to_node_id}
+                       </a>`;
+
+            let inlineLinks = "";
+
+            // Position link
+            if (pkt.portnum === 3 && pkt.payload) {
+                const latMatch = pkt.payload.match(/latitude_i:\s*(-?\d+)/);
+                const lonMatch = pkt.payload.match(/longitude_i:\s*(-?\d+)/);
+
+                if (latMatch && lonMatch) {
+                    const lat = parseInt(latMatch[1]) / 1e7;
+                    const lon = parseInt(lonMatch[1]) / 1e7;
+                    inlineLinks += ` <a class="inline-link"
+                                        href="https://www.google.com/maps?q=${lat},${lon}"
+                                        target="_blank">📍</a>`;
+                }
+            }
+
+            // Traceroute link
+            if (pkt.portnum === 70) {
+                let traceId = pkt.id;
+                const match = pkt.payload.match(/ID:\s*(\d+)/i);
+                if (match) traceId = match[1];
+
+                inlineLinks += ` <a class="inline-link"
+                                    href="/graph/traceroute/${traceId}"
+                                    target="_blank">⮕</a>`;
+            }
+
+            const safePayload = (pkt.payload || "")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            const html = `
+<tr class="packet-row">
+
+    <td>
+        ${formatTimes(pkt.import_time_us).local}<br>
+    </td>
+
+    <td>
+        <span class="toggle-btn">▶</span>
+        <a href="/packet/${pkt.id}"
+           style="text-decoration:underline; color:inherit;">
+            ${pkt.id}
+        </a>
+    </td>
+
+    <td>${from}</td>
+    <td>${to}</td>
+    <td>${portLabel(pkt.portnum, pkt.payload, inlineLinks)}</td>
+
+</tr>
+
+<tr class="payload-row">
+    <td colspan="5" class="payload-cell">${safePayload}</td>
+</tr>
+`;
+
+            list.insertAdjacentHTML("afterbegin", html);
+        }
+
+        // Limit table size
+        while (list.rows.length > 400) list.deleteRow(-1);
+
+        lastImportTimeUs = packets[packets.length - 1].import_time_us;
+
+    } catch (err) {
+        console.error("Packet fetch failed:", err);
+    }
+}
+
+/* ======================================================
+   INITIALIZE PAGE
+   ====================================================== */
+document.addEventListener("DOMContentLoaded", async () => {
+
+    const pauseBtn = document.getElementById("pause-button");
+
+    pauseBtn.addEventListener("click", () => {
+        updatesPaused = !updatesPaused;
+
+        pauseBtn.textContent =
+            updatesPaused
+                ? (firehoseTranslations.resume || "Resume")
+                : (firehoseTranslations.pause || "Pause");
+    });
+
+    document.addEventListener("click", e => {
+        const btn = e.target.closest(".toggle-btn");
+        if (!btn) return;
+
+        const row = btn.closest(".packet-row");
+        row.classList.toggle("expanded");
+
+        btn.textContent =
+            row.classList.contains("expanded") ? "▼" : "▶";
+    });
+
+    await loadTranslationsFirehose();
+    await configureFirehose();
+    await loadNodes();
+
+    fetchUpdates();
+    setInterval(fetchUpdates, updateInterval);
+});
+</script>
+
 {% endblock %}
